@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { pool } from "@/lib/db"
+import { countActiveApiKeys } from "@/lib/api-keys"
 import { cn } from "@/lib/utils"
 import { PRO_PRICE, formatCount, getPlanLabel, getPlanLimits } from "@/lib/plans"
 import { PlanUpgradeButton } from "./plan-upgrade-button"
@@ -35,18 +36,6 @@ type Step = {
   href?: string
   linkLabel?: string
   done?: boolean
-}
-
-async function countApiKeys(userId: string): Promise<number> {
-  try {
-    const result = await pool.query(
-      "SELECT COUNT(*)::int AS count FROM api_keys WHERE user_id = $1 AND revoked_at IS NULL",
-      [userId]
-    )
-    return result.rows[0]?.count ?? 0
-  } catch {
-    return 0
-  }
 }
 
 async function countProjects(userId: string): Promise<number> {
@@ -74,7 +63,7 @@ export default async function OverviewPage() {
   const isPro = planLabel === "Pro"
 
   const [apiKeyCount, projectCount] = await Promise.all([
-    userId ? countApiKeys(userId) : Promise.resolve(0),
+    userId ? countActiveApiKeys(userId) : Promise.resolve(0),
     userId ? countProjects(userId) : Promise.resolve(0),
   ])
 
