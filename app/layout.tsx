@@ -15,8 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hulu",
-  description: "Stream TV shows, movies, and more.",
+  title: "huluCode",
+  description:
+    "Understand any codebase without your code leaving your machine.",
+  openGraph: {
+    title: "huluCode",
+    description:
+      "Understand any codebase without your code leaving your machine.",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
