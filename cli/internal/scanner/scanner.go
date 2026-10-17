@@ -78,11 +78,24 @@ var secretSuffixes = []string{
 	".keystore",
 }
 
-var secretPrefixes = []string{
+var identityPrefixes = []string{
 	"id_rsa",
 	"id_ed25519",
+}
+
+var contentPrefixes = []string{
 	"credentials",
 	"secrets",
+}
+
+var sourceExtensions = map[string]bool{
+	".go":  true,
+	".ts":  true,
+	".tsx": true,
+	".js":  true,
+	".jsx": true,
+	".mjs": true,
+	".py":  true,
 }
 
 type File struct {
@@ -274,13 +287,22 @@ func IsSecretFile(name string) bool {
 			return true
 		}
 	}
-	for _, prefix := range secretPrefixes {
+	for _, prefix := range identityPrefixes {
 		if strings.HasPrefix(lower, prefix) {
 			return true
 		}
 	}
+	for _, prefix := range contentPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return !IsSourceFile(lower)
+		}
+	}
 
 	return false
+}
+
+func IsSourceFile(name string) bool {
+	return sourceExtensions[strings.ToLower(filepath.Ext(name))]
 }
 
 func LanguageFor(name string) (string, bool) {

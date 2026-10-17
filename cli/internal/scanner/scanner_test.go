@@ -44,10 +44,11 @@ func scanOrFail(t *testing.T, root string) *Report {
 
 func TestIsSecretFile(t *testing.T) {
 	secret := []string{
-		".env", ".env.local", ".env.production",
+		".env", ".env.local", ".env.production", ".env.go",
 		"server.pem", "server.KEY", "tls.p12", "app.pfx", "cert.crt", "cert.cer",
-		"id_rsa", "id_rsa.pub", "id_ed25519", "id_ed25519_backup",
-		"release.keystore", "credentials.json", "credentials", "secrets.go",
+		"id_rsa", "id_rsa.pub", "id_rsa.go", "id_ed25519", "id_ed25519_backup",
+		"release.keystore", "credentials.json", "credentials", "credentials.yml",
+		"secrets", "secrets.json", "secrets.yaml", "Secrets.TOML",
 		".npmrc", ".netrc",
 	}
 	for _, name := range secret {
@@ -59,10 +60,31 @@ func TestIsSecretFile(t *testing.T) {
 	plain := []string{
 		"main.go", "app.ts", ".gitignore", "environment.go", "keyboard.js",
 		"certs.md", "secret_santa.py", "id.go", "key.pem.txt",
+		"secrets.go", "credentials.ts", "credentials.py", "secrets.tsx", "Secrets.JS",
 	}
 	for _, name := range plain {
 		if IsSecretFile(name) {
 			t.Errorf("IsSecretFile(%q) = true, want false", name)
+		}
+	}
+}
+
+func TestSourcePrefixSecretRuleKeepsSourceFiles(t *testing.T) {
+	for _, name := range []string{"secrets.go", "credentials.ts", "secrets.py"} {
+		if !IsSourceFile(name) {
+			t.Errorf("IsSourceFile(%q) = false, want true", name)
+		}
+		if IsSecretFile(name) {
+			t.Errorf("IsSecretFile(%q) = true, want the source file to be scanned", name)
+		}
+	}
+
+	for _, name := range []string{"secrets.json", "credentials.yml", "secrets"} {
+		if IsSourceFile(name) {
+			t.Errorf("IsSourceFile(%q) = true, want false", name)
+		}
+		if !IsSecretFile(name) {
+			t.Errorf("IsSecretFile(%q) = false, want true", name)
 		}
 	}
 }
@@ -183,7 +205,8 @@ func TestScanSkipsSecrets(t *testing.T) {
 	writeFile(t, filepath.Join(root, "main.go"), []byte("package main\n"))
 	writeFile(t, filepath.Join(root, ".env"), []byte("TOKEN=super-secret-value\n"))
 	writeFile(t, filepath.Join(root, "server.pem"), []byte("-----BEGIN KEY-----\n"))
-	writeFile(t, filepath.Join(root, "secrets.go"), []byte("package secrets\n"))
+	writeFile(t, filepath.Join(root, "secrets.json"), []byte("{}\n"))
+	writeFile(t, filepath.Join(root, "credentials.yml"), []byte("user: x\n"))
 	writeFile(t, filepath.Join(root, "nested", "id_rsa"), []byte("private\n"))
 
 	report := scanOrFail(t, root)
@@ -192,8 +215,24 @@ func TestScanSkipsSecrets(t *testing.T) {
 	if len(got) != 1 || got[0] != "main.go" {
 		t.Errorf("kept %v, want [main.go]", got)
 	}
-	if report.Skipped[ReasonSecret] != 4 {
-		t.Errorf("secret count = %d, want 4", report.Skipped[ReasonSecret])
+	if report.Skipped[ReasonSecret] != 5 {
+		t.Errorf("secret count = %d, want 5", report.Skipped[ReasonSecret])
+	}
+}
+
+func TestScanScansSecretNamedSourceFiles(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "secrets.go"), []byte("package secrets\n"))
+	writeFile(t, filepath.Join(root, "credentials.ts"), []byte("export const a = 1\n"))
+
+	report := scanOrFail(t, root)
+
+	got := keptPaths(t, report)
+	if len(got) != 2 {
+		t.Fatalf("kept %v, want source files named secrets/credentials to be scanned", got)
+	}
+	if report.Skipped[ReasonSecret] != 0 {
+		t.Errorf("secret count = %d, want 0", report.Skipped[ReasonSecret])
 	}
 }
 
