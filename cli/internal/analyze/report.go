@@ -24,6 +24,8 @@ type jsonReport struct {
 	Symbols    jsonSymbols    `json:"symbols"`
 	Files      []parser.File  `json:"files"`
 	Chunks     []jsonChunk    `json:"chunks"`
+	Edges      []Edge         `json:"edges"`
+	External   []string       `json:"external_dependencies"`
 }
 
 type jsonSymbols struct {
@@ -58,6 +60,8 @@ func (r *Result) WriteJSON(w io.Writer, includeCode bool) error {
 		Symbols:    jsonSymbols{Total: r.Symbols, ByKind: r.ByKind},
 		Files:      r.Files,
 		Chunks:     chunksForJSON(r.Chunks, includeCode),
+		Edges:      r.Edges,
+		External:   r.External,
 	}
 
 	encoder := json.NewEncoder(w)
@@ -119,6 +123,7 @@ func (r *Result) WriteText(w io.Writer, verbose bool) {
 		fmt.Fprintf(tw, "total\t%d\n\n", r.Symbols)
 	}
 	fmt.Fprintf(tw, "Chunks\t%d\n", len(r.Chunks))
+	fmt.Fprintf(tw, "Dependencies\t%d edges, %d external\n", len(r.Edges), len(r.External))
 	tw.Flush()
 
 	if len(r.Largest) > 0 {

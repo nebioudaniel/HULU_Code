@@ -44,6 +44,8 @@ type Result struct {
 	Report   *scanner.Report
 	Files    []parser.File
 	Chunks   []chunker.Chunk
+	Edges    []Edge
+	External []string
 	Failures []Failure
 	Symbols  int
 	ByKind   map[string]int
@@ -106,6 +108,7 @@ func Run(root string, opts Options) (*Result, error) {
 
 	sortChunks(result.Chunks)
 	result.Largest = largestSymbols(result.Files)
+	result.Edges, result.External = buildEdges(report.Root, result.Files)
 
 	return result, nil
 }
