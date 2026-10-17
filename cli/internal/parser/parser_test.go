@@ -217,7 +217,7 @@ func TestParsePython(t *testing.T) {
 	if file.Partial {
 		t.Error("a valid file should not be partial")
 	}
-	requireImports(t, file, []string{"os", "os.path", ".", ".mod", "pkg.sub"})
+	requireImports(t, file, []string{"os", "os.path", ".sibling", ".mod", "pkg.sub"})
 
 	plain := requireSymbol(t, file, KindFunction, "plain")
 	if plain.Async || strings.Join(plain.Decorators, ",") != "decorator" {

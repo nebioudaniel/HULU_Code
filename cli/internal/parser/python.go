@@ -158,5 +158,38 @@ func collectPythonFromImport(node *sitter.Node, src []byte, file *File, seen map
 		return
 	}
 
-	appendUnique(&file.Imports, seen, module.Content(src))
+	moduleText := module.Content(src)
+	if isPythonPackagePrefix(moduleText) {
+		for _, name := range importedNames(node, module, src) {
+			appendUnique(&file.Imports, seen, moduleText+name)
+		}
+		return
+	}
+
+	appendUnique(&file.Imports, seen, moduleText)
+}
+
+func isPythonPackagePrefix(module string) bool {
+	return strings.HasPrefix(module, ".") && strings.Trim(module, ".") == ""
+}
+
+func importedNames(node *sitter.Node, module *sitter.Node, src []byte) []string {
+	names := []string{}
+	for i := 0; i < int(node.ChildCount()); i++ {
+		child := node.Child(i)
+		if child.StartByte() == module.StartByte() && child.EndByte() == module.EndByte() {
+			continue
+		}
+
+		switch child.Type() {
+		case "dotted_name":
+			names = append(names, child.Content(src))
+		case "aliased_import":
+			if name := child.ChildByFieldName("name"); name != nil {
+				names = append(names, name.Content(src))
+			}
+		}
+	}
+
+	return names
 }
