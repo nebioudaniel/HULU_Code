@@ -30,7 +30,10 @@ export function isMobileMoneyConfigured(): boolean {
 }
 
 export function isMockMobileMoneyEnabled(): boolean {
-  return process.env.NODE_ENV !== "production" && !isMobileMoneyConfigured();
+  if (process.env.NODE_ENV === "production") return false;
+  return (
+    process.env.ENABLE_MOCK_PAYMENTS === "true" && !isMobileMoneyConfigured()
+  );
 }
 
 function getV1Key(): string {
