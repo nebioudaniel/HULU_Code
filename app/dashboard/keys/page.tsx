@@ -1,9 +1,15 @@
+import Link from "next/link"
+import { redirect } from "next/navigation"
+import { connection } from "next/server"
 import { KeyRound } from "lucide-react"
 
+import { auth } from "@/auth"
 import { CreateKeyDialog } from "./create-key-dialog"
+import { RevokeKeyButton } from "./revoke-key-button"
 import { CopyButton } from "@/components/dashboard/copy-button"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -19,26 +25,58 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-type ApiKey = {
-  id: string
-  name: string
-  masked: string
-  createdAt: string
-  lastUsed: string
-}
-
-const keys: ApiKey[] = []
+import { listApiKeys } from "@/lib/api-keys"
+import { getPlanLimits } from "@/lib/plans"
 
 const loginCommand = "hulucode auth login --key <YOUR_KEY>"
 
-export default function ApiKeysPage() {
+function formatDate(value: string | null): string {
+  if (!value) return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+}
+
+export default async function ApiKeysPage() {
+  await connection()
+
+  const session = await auth()
+  if (!session?.user?.id) redirect("/")
+
+  const limits = getPlanLimits(session.user.plan_tier)
+  const keys = await listApiKeys(session.user.id)
+
+  const activeCount = keys.filter((key) => key.status === "Active").length
+  const atLimit = activeCount >= limits.apiKeys
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="API keys"
         description="Secret keys that let the CLI access your account."
-        action={<CreateKeyDialog />}
+        action={
+          atLimit ? (
+            <div className="flex flex-col items-end gap-2 text-right">
+              <CreateKeyDialog disabled />
+              <p className="max-w-56 text-xs text-muted-foreground">
+                You have reached your plan limit of {limits.apiKeys} active{" "}
+                {limits.apiKeys === 1 ? "key" : "keys"}.{" "}
+                <Link
+                  href="/dashboard/billing"
+                  className="font-medium text-foreground underline underline-offset-4 hover:text-foreground"
+                >
+                  Upgrade
+                </Link>
+              </p>
+            </div>
+          ) : (
+            <CreateKeyDialog />
+          )
+        }
       />
 
       {keys.length === 0 ? (
@@ -56,20 +94,37 @@ export default function ApiKeysPage() {
                 <TableHead className="px-4">Key</TableHead>
                 <TableHead className="px-4">Created</TableHead>
                 <TableHead className="px-4">Last used</TableHead>
+                <TableHead className="px-4">Status</TableHead>
+                <TableHead className="w-12 px-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {keys.map((key) => (
                 <TableRow key={key.id}>
-                  <TableCell className="px-4 font-medium">{key.name}</TableCell>
+                  <TableCell className="px-4 font-medium text-foreground">
+                    {key.name}
+                  </TableCell>
                   <TableCell className="px-4 font-mono text-xs text-muted-foreground">
-                    {key.masked}
+                    {key.keyPrefix}
+                    {"...."}
                   </TableCell>
                   <TableCell className="px-4 text-muted-foreground">
-                    {key.createdAt}
+                    {formatDate(key.createdAt)}
                   </TableCell>
                   <TableCell className="px-4 text-muted-foreground">
-                    {key.lastUsed}
+                    {key.lastUsedAt ? formatDate(key.lastUsedAt) : "Never"}
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <Badge
+                      variant={key.status === "Active" ? "default" : "secondary"}
+                    >
+                      {key.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-4 text-right">
+                    {key.status === "Active" && (
+                      <RevokeKeyButton keyId={key.id} name={key.name} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
