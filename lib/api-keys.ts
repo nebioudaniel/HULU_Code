@@ -133,6 +133,59 @@ export async function createApiKey(
   }
 }
 
+export type ApiKeyVerification =
+  | { ok: true; keyId: string; userId: string; planTier: string }
+  | { ok: false; status: number; error: string };
+
+export async function verifyApiKey(rawKey: string): Promise<ApiKeyVerification> {
+  const keyHash = hashApiKey(rawKey);
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT k.id, k.user_id, k.revoked_at, u.plan_tier
+         FROM api_keys k
+         JOIN users u ON k.user_id = u.id
+        WHERE k.key_hash = $1`,
+      [keyHash]
+    );
+
+    const row = rows[0];
+
+    if (!row) {
+      return { ok: false, status: 401, error: "Invalid API key" };
+    }
+
+    if (row.revoked_at) {
+      return { ok: false, status: 401, error: "API key has been revoked" };
+    }
+
+    try {
+      await pool.query(
+        "UPDATE api_keys SET last_used_at = now() WHERE key_hash = $1",
+        [keyHash]
+      );
+    } catch (error) {
+      console.error(
+        "Could not update last_used_at:",
+        error instanceof Error ? error.message : "unknown error"
+      );
+    }
+
+    return {
+      ok: true,
+      keyId: row.id,
+      userId: row.user_id,
+      planTier: row.plan_tier,
+    };
+  } catch (error) {
+    console.error(
+      "Could not verify API key:",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    return { ok: false, status: 500, error: "Database error" };
+  }
+}
+
 export async function revokeApiKey(
   userId: string,
   id: string
