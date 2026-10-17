@@ -116,11 +116,17 @@ make install`}</Code>
           <Code>{`hulucode scan --local
 hulucode scan --local ./some/project
 hulucode scan --local --json
-hulucode scan --local --verbose`}</Code>
+hulucode scan --local --verbose
+hulucode scan --local --symbols
+hulucode scan --local --lang go,ts,py
+hulucode scan --local --json --include-code`}</Code>
           <Bullets
             items={[
               "--json prints the report as JSON instead of a table.",
-              "--verbose lists every file that was kept.",
+              "--verbose lists every file that was parsed.",
+              "--symbols prints per-file symbol lists (kind, name, line range).",
+              "--lang filters by language, using a comma-separated list of go, ts, js, py.",
+              "--include-code adds chunk source code to the JSON output and writes a notice to stderr.",
             ]}
           />
           <p>The report looks like this:</p>

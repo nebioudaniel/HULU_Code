@@ -96,14 +96,20 @@ hulucode scan --local
 hulucode scan --local ./some/project
 hulucode scan --local --json
 hulucode scan --local --verbose
+hulucode scan --local --symbols
+hulucode scan --local --lang go,ts,py
+hulucode scan --local --json --include-code
 ```
 
-The path defaults to the current directory. Logging in is required, but nothing is uploaded — the command walks the tree and reports what it would read.
+The path defaults to the current directory. Logging in is required, but nothing is uploaded — the command walks the tree, parses the source code it keeps and reports symbols, chunks and file dependency edges.
 
 Flags:
 
 - `--json` prints the report as JSON instead of a table.
-- `--verbose` lists every file that was kept.
+- `--verbose` lists every file that was parsed.
+- `--symbols` prints per-file symbol lists (kind, name, line range).
+- `--lang` filters by language, using a comma-separated list of `go`, `ts`, `js`, `py`.
+- `--include-code` includes chunk source code in the JSON output. When set, the CLI prints `Source code is included in this output.` to stderr.
 
 Exit code is `0` on success.
 
