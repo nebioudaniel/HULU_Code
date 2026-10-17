@@ -29,6 +29,23 @@ function hasValidSignature(rawBody: string, received: string | null): boolean {
 }
 
 export async function POST(req: Request) {
+  const secret = process.env.CHAPA_WEBHOOK_SECRET?.trim();
+
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        "CHAPA_WEBHOOK_SECRET is not set. Refusing webhooks because any request would otherwise be accepted."
+      );
+      return NextResponse.json(
+        { error: "Webhook secret is not configured" },
+        { status: 500 }
+      );
+    }
+    console.warn(
+      "CHAPA_WEBHOOK_SECRET is not set. Accepting webhooks without signature verification."
+    );
+  }
+
   try {
     const rawBody = await req.text();
 
