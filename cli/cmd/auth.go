@@ -29,7 +29,10 @@ func newAuthCmd() *cobra.Command {
 }
 
 func newLoginCmd() *cobra.Command {
-	var providedKey string
+	var (
+		providedKey string
+		providedURL string
+	)
 
 	login := &cobra.Command{
 		Use:   "login",
@@ -57,7 +60,12 @@ func newLoginCmd() *cobra.Command {
 				return err
 			}
 
+			explicitURL := strings.TrimRight(strings.TrimSpace(providedURL), "/")
+
 			apiURL := saved.ResolveAPIURL()
+			if explicitURL != "" {
+				apiURL = explicitURL
+			}
 
 			validation, err := api.NewClient(apiURL).Validate(cmd.Context(), key)
 			if err != nil {
@@ -65,7 +73,9 @@ func newLoginCmd() *cobra.Command {
 			}
 
 			saved.APIKey = key
-			saved.APIURL = apiURL
+			if explicitURL != "" {
+				saved.APIURL = explicitURL
+			}
 			if err := saved.Save(); err != nil {
 				return err
 			}
@@ -77,6 +87,7 @@ func newLoginCmd() *cobra.Command {
 	}
 
 	login.Flags().StringVar(&providedKey, "key", "", "API key to validate and save")
+	login.Flags().StringVar(&providedURL, "api-url", "", "API base URL to use and save in the config")
 
 	return login
 }
