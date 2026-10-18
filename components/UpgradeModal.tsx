@@ -3,10 +3,12 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type FormEvent,
 } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Dialog } from "radix-ui"
 import { Check, CreditCard, Loader2, XIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -17,6 +19,7 @@ import {
   type PaymentProviderId,
 } from "@/components/payment-logos"
 import { ReceiptPrinter } from "@/components/ReceiptPrinter"
+import { isValidEmail } from "@/lib/email"
 import { cn } from "@/lib/utils"
 
 const POLL_INTERVAL_MS = 3000
@@ -58,8 +61,14 @@ export function UpgradeModal({
   onFailure,
 }: UpgradeModalProps) {
   const router = useRouter()
+  const { data: session, status: sessionStatus } = useSession()
+  const sessionEmail = session?.user?.email
+  const needsEmail =
+    sessionStatus !== "loading" && !isValidEmail(sessionEmail)
   const [state, setState] = useState<ModalState>("form")
   const [method, setMethod] = useState<Method>("telebirr")
+  const [email, setEmail] = useState("")
+  const checkoutEmail = useRef("")
   const [phone, setPhone] = useState("")
   const [txRef, setTxRef] = useState<string | null>(null)
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
@@ -101,6 +110,8 @@ export function UpgradeModal({
   const reset = useCallback(() => {
     setState("form")
     setMethod("telebirr")
+    setEmail("")
+    checkoutEmail.current = ""
     setPhone("")
     setTxRef(null)
     setCheckoutUrl(null)
@@ -164,10 +175,16 @@ export function UpgradeModal({
   }
 
   const startHosted = useCallback(() => {
+    if (needsEmail && !isValidEmail(email)) {
+      setError("Please check your email address and try again.")
+      return
+    }
+
+    checkoutEmail.current = needsEmail ? email.trim() : ""
     setError(null)
     setState("initializing")
     setAttempt((value) => value + 1)
-  }, [])
+  }, [email, needsEmail])
 
   function handleSubmit(event: FormEvent) {
     if (method === "card") {
@@ -185,7 +202,13 @@ export function UpgradeModal({
 
     ;(async () => {
       try {
-        const res = await fetch("/api/payments/initialize", { method: "POST" })
+        const res = await fetch("/api/payments/initialize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            checkoutEmail.current ? { email: checkoutEmail.current } : {}
+          ),
+        })
         const data = await res.json().catch(() => null)
 
         if (cancelled) return
@@ -423,6 +446,10 @@ export function UpgradeModal({
                   </p>
                 )}
 
+                {method === "card" && needsEmail && (
+                  <CheckoutEmail value={email} onChange={setEmail} />
+                )}
+
                 {error && <p className="text-sm text-destructive">{error}</p>}
 
                 <Button type="submit" className="w-full rounded-lg">
@@ -438,6 +465,9 @@ export function UpgradeModal({
                 <p className="text-xs text-muted-foreground">
                   You&apos;ll be redirected to a secure Chapa checkout to pay.
                 </p>
+                {needsEmail && (
+                  <CheckoutEmail value={email} onChange={setEmail} />
+                )}
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button
                   type="button"
@@ -566,6 +596,34 @@ export function UpgradeModal({
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
+  )
+}
+
+function CheckoutEmail({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        htmlFor="checkout-email"
+        className="text-xs font-medium text-muted-foreground"
+      >
+        Email address
+      </label>
+      <input
+        id="checkout-email"
+        type="email"
+        autoComplete="email"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="you@example.com"
+        className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      />
+    </div>
   )
 }
 
