@@ -47,13 +47,14 @@ type tsconfig struct {
 	Extends string `json:"extends"`
 }
 
-func buildEdges(root string, files []parser.File) ([]Edge, []string) {
+func buildEdges(root string, files []parser.File) ([]Edge, []string, map[string]int) {
 	index := newFileIndex(files)
 	modulePath := readModulePath(root)
 	aliases := readAliases(root)
 
 	edges := []Edge{}
 	external := []string{}
+	externalCounts := map[string]int{}
 	seenEdge := map[string]bool{}
 	seenExternal := map[string]bool{}
 
@@ -61,6 +62,7 @@ func buildEdges(root string, files []parser.File) ([]Edge, []string) {
 		for _, spec := range file.Imports {
 			targets, isExternal := resolveImport(file, spec, index, modulePath, aliases)
 			if isExternal {
+				externalCounts[spec]++
 				if !seenExternal[spec] {
 					seenExternal[spec] = true
 					external = append(external, spec)
@@ -87,7 +89,7 @@ func buildEdges(root string, files []parser.File) ([]Edge, []string) {
 	})
 	sort.Strings(external)
 
-	return edges, external
+	return edges, external, externalCounts
 }
 
 func resolveImport(file parser.File, spec string, index *fileIndex, modulePath string, aliases *aliasResolver) ([]string, bool) {
