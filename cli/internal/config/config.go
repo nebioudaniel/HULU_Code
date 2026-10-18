@@ -13,7 +13,6 @@ const (
 	DirName       = ".hulucode"
 	FileName      = "config.json"
 	EnvAPIURL     = "HULUCODE_API_URL"
-	DefaultAPIURL = "http://localhost:3000"
 
 	dirPerm  os.FileMode = 0o700
 	filePerm os.FileMode = 0o600
@@ -21,6 +20,8 @@ const (
 	maskVisible    = 12
 	maskShortLimit = 4
 )
+
+var DefaultAPIURL = "http://localhost:3000"
 
 var ErrNotConfigured = errors.New("not configured")
 
