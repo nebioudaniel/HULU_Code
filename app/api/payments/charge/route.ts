@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const mock = isMockMobileMoneyEnabled();
+  const mock =
+    process.env.NODE_ENV !== "production" && isMockMobileMoneyEnabled();
 
   if (!isMobileMoneyConfigured() && !mock) {
     return NextResponse.json(
