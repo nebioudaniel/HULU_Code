@@ -165,6 +165,10 @@ It never sends:
 
 huluCode is in early development (v0.1.0). The web app, CLI, and a Go reference backend service are available. API keys, Chapa payments, and project sync are implemented and being finished.
 
+## Live demo
+
+The deployed instance is a placeholder. Set it up yourself with Cloudflare Workers Builds (see docs/DEPLOY_CLOUDFLARE.md). Payments run in Chapa test mode; no real money is collected.
+
 ## Screenshots
 
 (TODO: add screenshots in `docs/` for the landing page, dashboard, and sync flow.)
