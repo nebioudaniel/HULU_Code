@@ -1,0 +1,5 @@
+hulu-backend
+*.exe
+.env
+.env.*
+!.env.example
