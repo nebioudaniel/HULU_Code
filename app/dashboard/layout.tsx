@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { connection } from "next/server"
 
 import { auth } from "@/auth"
+import { redirectFor } from "@/lib/plan-routing"
 import {
   DashboardSidebar,
   type DashboardUser,
@@ -19,17 +20,26 @@ export default async function DashboardLayout({
   await connection()
 
   const session = await auth()
+  const destination = redirectFor("dashboard", {
+    authenticated: Boolean(session?.user?.id),
+    planChosen: Boolean(session?.user?.plan_chosen),
+  })
 
-  if (!session?.user?.id) {
+  if (destination) {
+    redirect(destination)
+  }
+
+  const current = session?.user
+  if (!current) {
     redirect("/")
   }
 
   const user: DashboardUser = {
-    name: session.user.name ?? null,
-    email: session.user.email ?? null,
-    image: session.user.image ?? null,
-    planTier: session.user.plan_tier ?? "free",
-    planEndsAt: session.user.plan_ends_at ?? null,
+    name: current.name ?? null,
+    email: current.email ?? null,
+    image: current.image ?? null,
+    planTier: current.plan_tier ?? "free",
+    planEndsAt: current.plan_ends_at ?? null,
   }
 
   return (
