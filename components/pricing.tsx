@@ -1,6 +1,7 @@
 import { PlanCta } from "@/components/plan-cta"
 
 type Plan = {
+  id: "free" | "pro" | "team"
   name: string
   price: string
   period: string
@@ -14,6 +15,7 @@ type Plan = {
 
 const plans: Plan[] = [
   {
+    id: "free",
     name: "Free",
     price: "0",
     period: "ETB / month",
@@ -29,6 +31,7 @@ const plans: Plan[] = [
     cta: { label: "Get started free" },
   },
   {
+    id: "pro",
     name: "Pro",
     price: "59.9",
     period: "ETB / month",
@@ -48,6 +51,7 @@ const plans: Plan[] = [
     highlighted: true,
   },
   {
+    id: "team",
     name: "Team",
     price: "99.9",
     period: "ETB / user / month",
@@ -150,6 +154,7 @@ export function Pricing() {
 
             <PlanCta
               label={plan.cta.label}
+              plan={plan.id}
               highlighted={plan.highlighted}
               disabled={plan.cta.disabled}
             />

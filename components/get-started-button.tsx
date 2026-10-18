@@ -12,14 +12,11 @@ export function GetStartedButton() {
 
   function handleClick() {
     if (session) {
-      if (session.user.plan_tier === "pro") {
-        router.push("/dashboard")
-      } else {
-        router.push("/select-plan")
-      }
-    } else {
-      signIn("github", { callbackUrl: "/select-plan" })
+      router.push("/dashboard")
+      return
     }
+
+    signIn("github", { callbackUrl: "/dashboard" })
   }
 
   return (
@@ -27,7 +24,7 @@ export function GetStartedButton() {
       onClick={handleClick}
       className="h-11 gap-2.5 rounded-full px-5 text-[12px] font-semibold uppercase tracking-wide"
     >
-      Sign up with GitHub
+      {session ? "Go to dashboard" : "Sign up with GitHub"}
       <span className="flex size-6 items-center justify-center rounded-full border border-primary-foreground/25">
         <ArrowRight className="size-3.5" />
       </span>
