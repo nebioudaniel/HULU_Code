@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { pool } from "@/lib/db";
+import { logError } from "@/lib/errors";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -23,14 +24,18 @@ export async function POST(req: Request) {
   try {
     await pool.query(
       `UPDATE users
-       SET plan_tier = $1, plan_ends_at = NULL
+       SET plan_tier = $1, plan_ends_at = NULL, plan_chosen = true
        WHERE id = $2`,
       [plan, session.user.id]
     );
 
-    return NextResponse.json({ success: true, plan_tier: plan });
+    return NextResponse.json({
+      success: true,
+      plan_tier: plan,
+      plan_chosen: true,
+    });
   } catch (error) {
-    console.error("Error updating user plan:", error);
+    logError("Plan update failed", error, "save free plan");
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

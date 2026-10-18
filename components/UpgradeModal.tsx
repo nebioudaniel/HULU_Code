@@ -48,12 +48,14 @@ type UpgradeModalProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  onFailure?: () => void
 }
 
 export function UpgradeModal({
   open,
   onOpenChange,
   onSuccess,
+  onFailure,
 }: UpgradeModalProps) {
   const router = useRouter()
   const [state, setState] = useState<ModalState>("form")
@@ -202,15 +204,19 @@ export function UpgradeModal({
         } else if (data?.status === "failed") {
           window.clearInterval(id)
           setTxRef(null)
-          setError("The payment failed or was cancelled. Please try again.")
-          setState("form")
+          if (onFailure) {
+            onFailure()
+          } else {
+            setError("The payment failed or was cancelled. Please try again.")
+            setState("form")
+          }
         }
       } catch {
       }
     }, POLL_INTERVAL_MS)
 
     return () => window.clearInterval(id)
-  }, [open, txRef, state])
+  }, [open, txRef, state, onFailure])
 
   useEffect(() => {
     if (state !== "printing") return

@@ -82,15 +82,21 @@ function CheckIcon() {
 const popularBadge =
   "inline-flex items-center rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground"
 
-export function SelectPlanCards() {
+export function SelectPlanCards({
+  initialError,
+}: {
+  initialError: string | null
+}) {
   const router = useRouter()
   const [freeLoading, setFreeLoading] = useState(false)
   const [freeError, setFreeError] = useState<string | null>(null)
+  const [paymentError, setPaymentError] = useState<string | null>(initialError)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
 
   async function selectFree() {
     setFreeLoading(true)
     setFreeError(null)
+    setPaymentError(null)
 
     try {
       const res = await fetch("/api/user/plan", {
@@ -173,6 +179,20 @@ export function SelectPlanCards() {
         })}
       </div>
 
+      {paymentError && (
+        <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
+          <p className="text-sm text-destructive">{paymentError}</p>
+          <Button
+            variant="outline"
+            className="mt-3 rounded-lg"
+            disabled={freeLoading}
+            onClick={selectFree}
+          >
+            {freeLoading ? "Processing…" : "Continue with Free"}
+          </Button>
+        </div>
+      )}
+
       {freeError && (
         <p className="mt-6 text-center text-sm text-destructive">{freeError}</p>
       )}
@@ -185,6 +205,12 @@ export function SelectPlanCards() {
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
         onSuccess={() => router.push("/dashboard")}
+        onFailure={() => {
+          setCheckoutOpen(false)
+          setPaymentError(
+            "The payment failed or was cancelled. You have not been charged."
+          )
+        }}
       />
     </div>
   )
