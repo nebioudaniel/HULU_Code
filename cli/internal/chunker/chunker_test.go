@@ -125,4 +125,7 @@ func TestChunkIDsAreStableAndDistinct(t *testing.T) {
 	if len(first[0].ID) != idLength {
 		t.Errorf("id %q is not %d characters", first[0].ID, idLength)
 	}
+	if first[0].ContentHash == "" || first[1].ContentHash == "" {
+		t.Error("content hash must be set")
+	}
 }

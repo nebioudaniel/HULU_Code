@@ -26,18 +26,19 @@ var keepShortKinds = map[string]bool{
 }
 
 type Chunk struct {
-	ID        string   `json:"id"`
-	Path      string   `json:"path"`
-	Language  string   `json:"language"`
-	Kind      string   `json:"kind"`
-	Name      string   `json:"name"`
-	Parent    string   `json:"parent,omitempty"`
-	StartLine int      `json:"start_line"`
-	EndLine   int      `json:"end_line"`
-	Part      int      `json:"part,omitempty"`
-	Parts     int      `json:"parts,omitempty"`
-	Imports   []string `json:"-"`
-	Source    string   `json:"-"`
+	ID          string   `json:"id"`
+	Path        string   `json:"path"`
+	Language    string   `json:"language"`
+	Kind        string   `json:"kind"`
+	Name        string   `json:"name"`
+	Parent      string   `json:"parent,omitempty"`
+	StartLine   int      `json:"start_line"`
+	EndLine     int      `json:"end_line"`
+	Part        int      `json:"part,omitempty"`
+	Parts       int      `json:"parts,omitempty"`
+	Imports     []string `json:"-"`
+	Source      string   `json:"-"`
+	ContentHash string   `json:"-"`
 }
 
 func Build(file parser.File, source []byte) []Chunk {
@@ -51,14 +52,14 @@ func Build(file parser.File, source []byte) []Chunk {
 	}
 
 	chunks := []Chunk{}
-	for _, sym := range file.Symbols {
-		chunks = append(chunks, symbolChunks(file, sym, lines)...)
+	for i, sym := range file.Symbols {
+		chunks = append(chunks, symbolChunks(file, sym, lines, i)...)
 	}
 
 	return chunks
 }
 
-func symbolChunks(file parser.File, sym parser.Symbol, lines []string) []Chunk {
+func symbolChunks(file parser.File, sym parser.Symbol, lines []string, idx int) []Chunk {
 	if sym.Name == "" {
 		return nil
 	}
@@ -72,7 +73,7 @@ func symbolChunks(file parser.File, sym parser.Symbol, lines []string) []Chunk {
 	}
 
 	if span <= maxSymbolLines {
-		return []Chunk{newSymbolChunk(file, sym, sym.StartLine, sym.EndLine, 0, 0, lines)}
+		return []Chunk{newSymbolChunk(file, sym, sym.StartLine, sym.EndLine, 0, 0, lines, idx)}
 	}
 
 	total := (span + partLines - 1) / partLines
@@ -83,46 +84,56 @@ func symbolChunks(file parser.File, sym parser.Symbol, lines []string) []Chunk {
 		if end > sym.EndLine {
 			end = sym.EndLine
 		}
-		chunks = append(chunks, newSymbolChunk(file, sym, start, end, len(chunks)+1, total, lines))
+		chunks = append(chunks, newSymbolChunk(file, sym, start, end, len(chunks)+1, total, lines, idx))
 	}
 
 	return chunks
 }
 
-func newSymbolChunk(file parser.File, sym parser.Symbol, start int, end int, part int, parts int, lines []string) Chunk {
+func newSymbolChunk(file parser.File, sym parser.Symbol, start int, end int, part int, parts int, lines []string, idx int) Chunk {
+	src := sourceRange(lines, start, end)
 	return Chunk{
-		ID:        chunkID(file.Path, sym.Name, start),
-		Path:      file.Path,
-		Language:  file.Language,
-		Kind:      sym.Kind,
-		Name:      sym.Name,
-		Parent:    sym.Parent,
-		StartLine: start,
-		EndLine:   end,
-		Part:      part,
-		Parts:     parts,
-		Imports:   file.Imports,
-		Source:    sourceRange(lines, start, end),
+		ID:          chunkID(file.Path, sym.Kind, sym.Parent, sym.Name, idx, part),
+		Path:        file.Path,
+		Language:    file.Language,
+		Kind:        sym.Kind,
+		Name:        sym.Name,
+		Parent:      sym.Parent,
+		StartLine:   start,
+		EndLine:     end,
+		Part:        part,
+		Parts:       parts,
+		Imports:     file.Imports,
+		Source:      src,
+		ContentHash: sha256Hex(src),
 	}
 }
 
 func wholeFileChunk(file parser.File, lines []string) Chunk {
+	src := sourceRange(lines, 1, file.Lines)
 	return Chunk{
-		ID:        chunkID(file.Path, "", 1),
-		Path:      file.Path,
-		Language:  file.Language,
-		Kind:      KindFile,
-		StartLine: 1,
-		EndLine:   file.Lines,
-		Imports:   file.Imports,
-		Source:    sourceRange(lines, 1, file.Lines),
+		ID:           chunkID(file.Path, KindFile, "", "", 0, 0),
+		Path:         file.Path,
+		Language:     file.Language,
+		Kind:         KindFile,
+		StartLine:    1,
+		EndLine:      file.Lines,
+		Imports:      file.Imports,
+		Source:       src,
+		ContentHash:  sha256Hex(src),
 	}
 }
 
-func chunkID(path string, name string, startLine int) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%d", path, name, startLine)))
+func chunkID(path string, kind string, parent string, name string, idx int, part int) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%s\x00%s\x00%d\x00%d", path, kind, parent, name, idx, part)))
 
 	return hex.EncodeToString(sum[:])[:idLength]
+}
+
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+
+	return hex.EncodeToString(sum[:])
 }
 
 func sourceRange(lines []string, start int, end int) string {
