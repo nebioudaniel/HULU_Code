@@ -2,7 +2,8 @@ import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { pool } from "@/lib/db";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
+  trustHost: true,
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID,
@@ -77,4 +78,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
   },
-});
+}));

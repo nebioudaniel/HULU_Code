@@ -12,12 +12,12 @@ function usesNeon(url: string | undefined): boolean {
   }
 }
 
-const connectionString = process.env.DATABASE_URL;
 const driver = process.env.DB_DRIVER === "pg" ? "pg" : "neon";
 
 let backend: Promise<Pool> | null = null;
 
 async function createPool(): Promise<Pool> {
+  const connectionString = process.env.DATABASE_URL;
   if (usesNeon(connectionString) || driver !== "pg") {
     return new Pool({ connectionString });
   }
