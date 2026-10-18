@@ -2,6 +2,16 @@ import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { pool } from "@/lib/db";
 
+function errorCode(error: unknown): string | undefined {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" || typeof code === "number") {
+      return String(code);
+    }
+  }
+  return undefined;
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
   trustHost: true,
   providers: [
@@ -21,7 +31,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
   ],
   callbacks: {
     async signIn({ user, profile }) {
-      if (!profile?.id) return false;
+      if (!profile?.id) {
+        console.error("Sign-in denied", { step: "missing profile id" });
+        return false;
+      }
 
       try {
         await pool.query(
@@ -42,7 +55,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
 
         return true;
       } catch (error) {
-        console.error("Error saving user to Neon DB:", error);
+        console.error("Sign-in denied", {
+          step: "upsert user",
+          name: error instanceof Error ? error.name : "UnknownError",
+          code: errorCode(error),
+        });
         return false;
       }
     },
