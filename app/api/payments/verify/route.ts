@@ -6,7 +6,10 @@ import { paymentDestination } from "@/lib/plan-routing";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const tx_ref = searchParams.get("tx_ref");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.AUTH_URL?.trim() ||
+    new URL(req.url).origin;
 
   if (!tx_ref) {
     return NextResponse.redirect(

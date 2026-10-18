@@ -1,7 +1,6 @@
 import { pool } from "@/lib/db";
 import { ensurePaymentsSchema } from "@/lib/payments";
 
-const CHAPA_V2_BASE_URL = "https://api.chapa.global/v2";
 const CHAPA_V1_BASE_URL = "https://api.chapa.co/v1";
 
 export type PaymentState = "success" | "failed" | "pending" | "unknown";
@@ -30,6 +29,12 @@ export const DIRECT_CHARGE_UNAVAILABLE_MESSAGE =
 
 export const DIRECT_CHARGE_FAILED_MESSAGE =
   "Could not start the mobile money charge. Please try again.";
+
+export function getChapaSecretKey(): string | undefined {
+  const raw = process.env.CHAPA_SECRET_KEY?.trim();
+  if (!raw) return undefined;
+  return raw.replace(/^["']|["']$/g, "").trim();
+}
 
 export function isMobileMoneyConfigured(): boolean {
   return Boolean(process.env.CHAPA_V1_SECRET_KEY?.trim());
@@ -117,7 +122,7 @@ export async function verifyAndFulfill(
   }
 
   const { rows } = await pool.query(
-    `SELECT user_id, chapa_reference, status, channel FROM payments WHERE ${where}`,
+    `SELECT user_id, status, channel FROM payments WHERE ${where}`,
     params
   );
 
@@ -125,9 +130,8 @@ export async function verifyAndFulfill(
     return { state: "unknown" };
   }
 
-  const { user_id, chapa_reference, status, channel } = rows[0] as {
+  const { user_id, status, channel } = rows[0] as {
     user_id: string;
-    chapa_reference: string | null;
     status: string;
     channel: string | null;
   };
@@ -145,27 +149,23 @@ export async function verifyAndFulfill(
 
   return isMobile
     ? verifyMobileCharge(txRef, user_id)
-    : verifyHostedPayment(txRef, user_id, chapa_reference);
+    : verifyHostedPayment(txRef, user_id);
 }
 
 async function verifyHostedPayment(
   txRef: string,
-  userId: string,
-  chapaReference: string | null
+  userId: string
 ): Promise<VerifyResult> {
-  const secretKey = process.env.CHAPA_SECRET_KEY?.trim();
+  const secretKey = getChapaSecretKey();
   if (!secretKey) {
     throw new Error("CHAPA_SECRET_KEY is not configured");
   }
 
-  const reference = chapaReference || txRef;
-
   const res = await fetch(
-    `${CHAPA_V2_BASE_URL}/payments/${encodeURIComponent(reference)}/verify`,
+    `${CHAPA_V1_BASE_URL}/transaction/verify/${encodeURIComponent(txRef)}`,
     {
       headers: {
         Authorization: `Bearer ${secretKey}`,
-        "Content-Type": "application/json",
       },
     }
   );
