@@ -25,6 +25,12 @@ export type MobileProvider = (typeof MOBILE_PROVIDERS)[number];
 
 export const MOCK_CHANNEL = "mock";
 
+export const DIRECT_CHARGE_UNAVAILABLE_MESSAGE =
+  "Mobile money is not available yet. Please pay with Chapa checkout.";
+
+export const DIRECT_CHARGE_FAILED_MESSAGE =
+  "Could not start the mobile money charge. Please try again.";
+
 export function isMobileMoneyConfigured(): boolean {
   return Boolean(process.env.CHAPA_V1_SECRET_KEY?.trim());
 }
@@ -79,7 +85,21 @@ export async function initiateMobileCharge(
   const data = await res.json().catch(() => null);
 
   if (!res.ok || data?.status !== "success") {
-    throw new Error(data?.message || "Failed to start the mobile money charge");
+    const message = typeof data?.message === "string" ? data.message : "";
+
+    if (
+      /not\s+(allowed|enabled|permitted|authorized|authorised|available)|disabled|forbidden/i.test(
+        message
+      )
+    ) {
+      console.error("Chapa direct charge unavailable", {
+        status: res.status,
+        chapaStatus: data?.status,
+      });
+      throw new Error(DIRECT_CHARGE_UNAVAILABLE_MESSAGE);
+    }
+
+    throw new Error(DIRECT_CHARGE_FAILED_MESSAGE);
   }
 }
 

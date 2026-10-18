@@ -5,6 +5,8 @@ import { pool } from "@/lib/db";
 import { logError } from "@/lib/errors";
 import { ensurePaymentsSchema } from "@/lib/payments";
 import {
+  DIRECT_CHARGE_FAILED_MESSAGE,
+  DIRECT_CHARGE_UNAVAILABLE_MESSAGE,
   initiateMobileCharge,
   isMobileMoneyConfigured,
   isMockMobileMoneyEnabled,
@@ -13,6 +15,10 @@ import {
 } from "@/lib/chapa";
 
 export async function POST(req: Request) {
+  if (process.env.CHAPA_DIRECT_CHARGE_ENABLED !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -97,7 +103,10 @@ export async function POST(req: Request) {
       .catch(() => undefined);
 
     const message =
-      error instanceof Error ? error.message : "Failed to start the charge";
+      error instanceof Error &&
+      error.message === DIRECT_CHARGE_UNAVAILABLE_MESSAGE
+        ? DIRECT_CHARGE_UNAVAILABLE_MESSAGE
+        : DIRECT_CHARGE_FAILED_MESSAGE;
 
     return NextResponse.json({ error: message }, { status: 400 });
   }

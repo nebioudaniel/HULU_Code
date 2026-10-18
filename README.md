@@ -72,6 +72,7 @@ Open http://localhost:3000.
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App client secret. |
 | `CHAPA_SECRET_KEY` | Chapa secret key for hosted checkout initialize/verify. |
 | `CHAPA_V1_SECRET_KEY` | Chapa v1 secret key for mobile money Direct Charge. |
+| `CHAPA_DIRECT_CHARGE_ENABLED` | Set to `true` only after Chapa enables direct charges for the account. |
 | `CHAPA_WEBHOOK_SECRET` | Verifies `x-chapa-signature` on payment webhooks. |
 | `NEXT_PUBLIC_CHAPA_PUBLIC_KEY` | Chapa publishable key. Currently unused by the code. |
 | `NEXT_PUBLIC_APP_URL` | Base URL used for payment redirect links, e.g. `http://localhost:3000`. |
