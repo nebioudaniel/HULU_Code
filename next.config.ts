@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
+const isDocker = process.env.BUILD_TARGET === "docker";
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: isDocker ? "standalone" : undefined,
   images: {
     remotePatterns: [
       {
