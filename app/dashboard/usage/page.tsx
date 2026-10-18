@@ -3,6 +3,7 @@ import { connection } from "next/server"
 import { auth } from "@/auth"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { countActiveApiKeys } from "@/lib/api-keys"
+import { projectTotals } from "@/lib/projects"
 import {
   Card,
   CardContent,
@@ -42,16 +43,16 @@ export default async function UsagePage() {
   const limits = getPlanLimits(session?.user?.plan_tier)
 
   const userId = session?.user?.id
-  const apiKeyCount = userId ? await countActiveApiKeys(userId) : 0
+
+  const [apiKeyCount, totals] = await Promise.all([
+    userId ? countActiveApiKeys(userId) : Promise.resolve(0),
+    userId ? projectTotals(userId) : Promise.resolve({ projects: 0, chunks: 0 }),
+  ])
 
   const meters: Meter[] = [
-    { label: "Projects", used: 0, limit: limits.projects },
-    { label: "Code chunks", used: 0, limit: limits.chunks },
-    {
-      label: "AI questions this month",
-      used: 0,
-      limit: limits.questionsPerMonth,
-    },
+    { label: "Projects", used: totals.projects, limit: limits.projects },
+    { label: "Code chunks", used: totals.chunks, limit: limits.chunks },
+    { label: "AI questions", used: 0, limit: limits.questionsPerMonth },
     { label: "API keys", used: apiKeyCount, limit: limits.apiKeys },
   ]
 

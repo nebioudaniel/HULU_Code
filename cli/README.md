@@ -1,6 +1,6 @@
 # hulucode CLI
 
-`hulucode` talks to your huluCode instance from the terminal. Scanning happens entirely on your machine: the `scan` command reads files and prints a report, and nothing is uploaded yet.
+`hulucode` talks to your huluCode instance from the terminal. Scanning happens entirely on your machine: the `scan` command reads files and prints a report. Nothing is uploaded unless you pass `--sync`, which sends only the project structure.
 
 ## Install
 
@@ -101,7 +101,7 @@ hulucode scan --local --lang go,ts,py
 hulucode scan --local --json --include-code
 ```
 
-The path defaults to the current directory. Logging in is required, but nothing is uploaded — the command walks the tree, parses the source code it keeps and reports symbols, chunks and file dependency edges.
+The path defaults to the current directory. Logging in is required. A plain scan uploads nothing — the command walks the tree, parses the source code it keeps and reports symbols, chunks and file dependency edges.
 
 Flags:
 
@@ -112,6 +112,30 @@ Flags:
 - `--include-code` includes chunk source code in the JSON output. When set, the CLI prints `Source code is included in this output.` to stderr.
 
 Exit code is `0` on success.
+
+### Sync a project to your dashboard
+
+Add `--sync` to send the project structure to your dashboard so you can browse it on the web.
+
+```sh
+hulucode scan --local --sync
+hulucode scan --local --sync --name "My Project"
+hulucode scan --local --sync --dry-run
+hulucode scan --local --sync --yes
+```
+
+Only structure is sent: relative file paths, symbol names and kinds, line numbers, import relationships and external package names. Your source code and file contents never leave your machine.
+
+Flags:
+
+- `--sync` uploads the project structure to your account.
+- `--name` sets the project name (defaults to the directory name).
+- `--dry-run` prints what would be sent, including the payload size, without sending anything.
+- `--yes` approves the sync without the confirmation prompt.
+
+The first time you sync a project, the CLI lists exactly what is sent and what is not, then asks for your consent. With `--yes` you approve for that run only; on a non-interactive shell without `--yes`, the sync stops and exits with code `1` until you approve.
+
+The project identity is a hash of your git `origin` remote URL when there is one, otherwise a hash of the absolute path. Neither the raw URL nor the absolute path is ever sent.
 
 ## What is skipped, and why
 

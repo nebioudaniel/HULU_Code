@@ -527,3 +527,169 @@ export async function deleteProject(userId: string, projectId: string): Promise<
   );
   return (result.rowCount ?? 0) > 0;
 }
+
+export type ProjectSummary = {
+  id: string;
+  name: string;
+  fileCount: number;
+  chunkCount: number;
+  edgeCount: number;
+  languages: Record<string, number>;
+  externalDependencies: SyncExternalInput[];
+  lastSyncedAt: string | null;
+  createdAt: string | null;
+};
+
+export type ProjectFileRow = {
+  path: string;
+  language: string;
+  lineCount: number;
+  partial: boolean;
+  chunkCount: number;
+};
+
+export type ProjectChunkRow = {
+  key: string;
+  filePath: string;
+  kind: string;
+  name: string;
+  parent: string;
+  startLine: number;
+  endLine: number;
+};
+
+const PROJECT_COLUMNS =
+  "id, name, file_count, chunk_count, edge_count, languages, external_deps, last_synced_at, created_at";
+
+function toSummary(row: Record<string, unknown>): ProjectSummary {
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    fileCount: Number(row.file_count ?? 0),
+    chunkCount: Number(row.chunk_count ?? 0),
+    edgeCount: Number(row.edge_count ?? 0),
+    languages: (row.languages as Record<string, number>) ?? {},
+    externalDependencies: Array.isArray(row.external_deps)
+      ? (row.external_deps as SyncExternalInput[])
+      : [],
+    lastSyncedAt: row.last_synced_at ? String(row.last_synced_at) : null,
+    createdAt: row.created_at ? String(row.created_at) : null,
+  };
+}
+
+export async function listProjects(userId: string): Promise<ProjectSummary[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PROJECT_COLUMNS} FROM projects
+        WHERE user_id = $1
+        ORDER BY last_synced_at DESC NULLS LAST, created_at DESC`,
+      [userId]
+    );
+    return rows.map(toSummary);
+  } catch {
+    return [];
+  }
+}
+
+export async function getProject(
+  userId: string,
+  projectId: string
+): Promise<ProjectSummary | null> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = $1 AND user_id = $2`,
+      [projectId, userId]
+    );
+    return rows[0] ? toSummary(rows[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function projectTotals(
+  userId: string
+): Promise<{ projects: number; chunks: number }> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS projects, COALESCE(SUM(chunk_count), 0)::int AS chunks
+         FROM projects WHERE user_id = $1`,
+      [userId]
+    );
+    return {
+      projects: Number(rows[0]?.projects ?? 0),
+      chunks: Number(rows[0]?.chunks ?? 0),
+    };
+  } catch {
+    return { projects: 0, chunks: 0 };
+  }
+}
+
+export async function countProjectFiles(projectId: string): Promise<number> {
+  try {
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM project_files WHERE project_id = $1",
+      [projectId]
+    );
+    return Number(rows[0]?.count ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+export async function listProjectFiles(
+  projectId: string,
+  limit: number,
+  offset: number
+): Promise<ProjectFileRow[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT f.path, f.language, f.line_count, f.partial, COUNT(c.chunk_key)::int AS chunk_count
+         FROM project_files f
+         LEFT JOIN code_chunks c ON c.project_id = f.project_id AND c.file_path = f.path
+        WHERE f.project_id = $1
+        GROUP BY f.path, f.language, f.line_count, f.partial
+        ORDER BY f.path
+        LIMIT $2 OFFSET $3`,
+      [projectId, limit, offset]
+    );
+    return rows.map((row) => ({
+      path: String(row.path),
+      language: String(row.language ?? ""),
+      lineCount: Number(row.line_count ?? 0),
+      partial: Boolean(row.partial),
+      chunkCount: Number(row.chunk_count ?? 0),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function listProjectChunks(
+  projectId: string,
+  paths: string[]
+): Promise<ProjectChunkRow[]> {
+  if (paths.length === 0) {
+    return [];
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT chunk_key, file_path, kind, name, parent, start_line, end_line
+         FROM code_chunks
+        WHERE project_id = $1 AND file_path = ANY($2::text[])
+        ORDER BY file_path, start_line, name`,
+      [projectId, paths]
+    );
+    return rows.map((row) => ({
+      key: String(row.chunk_key),
+      filePath: String(row.file_path),
+      kind: String(row.kind ?? ""),
+      name: String(row.name ?? ""),
+      parent: String(row.parent ?? ""),
+      startLine: Number(row.start_line ?? 0),
+      endLine: Number(row.end_line ?? 0),
+    }));
+  } catch {
+    return [];
+  }
+}

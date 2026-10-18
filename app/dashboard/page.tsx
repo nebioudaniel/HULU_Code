@@ -23,8 +23,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { pool } from "@/lib/db"
 import { countActiveApiKeys } from "@/lib/api-keys"
+import { listProjects, projectTotals } from "@/lib/projects"
 import { cn } from "@/lib/utils"
 import { PRO_PRICE, formatCount, getPlanLabel, getPlanLimits } from "@/lib/plans"
 import { PlanUpgradeButton } from "./plan-upgrade-button"
@@ -36,18 +36,6 @@ type Step = {
   href?: string
   linkLabel?: string
   done?: boolean
-}
-
-async function countProjects(userId: string): Promise<number> {
-  try {
-    const result = await pool.query(
-      "SELECT COUNT(*)::int AS count FROM projects WHERE user_id = $1",
-      [userId]
-    )
-    return result.rows[0]?.count ?? 0
-  } catch {
-    return 0
-  }
 }
 
 export default async function OverviewPage() {
@@ -62,24 +50,26 @@ export default async function OverviewPage() {
   const limits = getPlanLimits(user?.plan_tier)
   const isPro = planLabel === "Pro"
 
-  const [apiKeyCount, projectCount] = await Promise.all([
+  const [apiKeyCount, totals, projects] = await Promise.all([
     userId ? countActiveApiKeys(userId) : Promise.resolve(0),
-    userId ? countProjects(userId) : Promise.resolve(0),
+    userId ? projectTotals(userId) : Promise.resolve({ projects: 0, chunks: 0 }),
+    userId ? listProjects(userId) : Promise.resolve([]),
   ])
 
   const hasApiKey = apiKeyCount > 0
-  const hasProject = projectCount > 0
+  const hasProject = totals.projects > 0
+  const recent = projects.slice(0, 5)
 
   const stats = [
     {
       label: "Projects",
-      value: projectCount,
+      value: totals.projects,
       icon: FolderGit2,
       hint: `of ${formatCount(limits.projects)} on ${planLabel}`,
     },
     {
       label: "Code chunks",
-      value: 0,
+      value: totals.chunks,
       icon: FileCode,
       hint: `of ${formatCount(limits.chunks)} on ${planLabel}`,
     },
@@ -113,8 +103,8 @@ export default async function OverviewPage() {
     },
     {
       title: "Run your first scan",
-      description: "Index a project from your own machine.",
-      code: "hulucode scan --local",
+      description: "Index a project and sync its structure from your machine.",
+      code: "hulucode scan --local --sync",
       done: hasProject,
     },
   ]
@@ -124,22 +114,61 @@ export default async function OverviewPage() {
 
   const recentProjects = (
     <section className="space-y-3">
-      <h2 className="text-base font-medium tracking-tight text-foreground">
-        Recent projects
-      </h2>
-      <EmptyState
-        icon={FolderGit2}
-        title="No projects yet"
-        description="Run hulucode scan --local in your project folder to see it here."
-        action={
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-medium tracking-tight text-foreground">
+          Recent projects
+        </h2>
+        {recent.length > 0 && (
           <Button asChild variant="ghost" size="sm" className="rounded-lg">
-            <Link href="#get-started">
-              View install steps
+            <Link href="/dashboard/projects">
+              View all
               <ArrowRight aria-hidden />
             </Link>
           </Button>
-        }
-      />
+        )}
+      </div>
+      {recent.length === 0 ? (
+        <EmptyState
+          icon={FolderGit2}
+          title="No projects yet"
+          description="Run hulucode scan --local --sync in your project folder to see it here."
+          action={
+            <Button asChild variant="ghost" size="sm" className="rounded-lg">
+              <Link href="#get-started">
+                View install steps
+                <ArrowRight aria-hidden />
+              </Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+          <ul className="divide-y divide-border">
+            {recent.map((project) => (
+              <li key={project.id}>
+                <Link
+                  href={`/dashboard/projects/${project.id}`}
+                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/50"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {project.name}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {formatCount(project.fileCount)} files ·{" "}
+                      {formatCount(project.chunkCount)} chunks
+                    </span>
+                  </span>
+                  <ArrowRight
+                    className="size-4 shrink-0 text-muted-foreground"
+                    aria-hidden
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   )
 

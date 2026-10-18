@@ -134,7 +134,7 @@ const features: { title: string; description: string; preview: ReactNode }[] = [
   {
     title: "Local-first scanning",
     description:
-      "Your code is parsed on your machine and never uploaded without consent.",
+      "Your code stays on your machine. Only the project structure is synced, and only with your consent.",
     preview: <TerminalPreview />,
   },
   {

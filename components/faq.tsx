@@ -2,7 +2,7 @@ const faqs = [
   {
     question: "Does my source code get uploaded?",
     answer:
-      "No. huluCode scans your code on your own machine. Only structural data and embeddings are sent to your account, and only after you run a scan. Files in .gitignore, .env files, certificates and private keys are skipped automatically.",
+      "No. huluCode scans your code on your own machine. Only the structure is sent to your account: relative file paths, symbol names and kinds, line numbers, import relationships and external package names. Your source code and file contents never leave your machine. Files in .gitignore, .env files, certificates and private keys are skipped automatically.",
   },
   {
     question: "Which languages are supported?",
@@ -11,7 +11,7 @@ const faqs = [
   {
     question: "How do I start?",
     answer:
-      "Sign in with GitHub, generate an API key, run `hulucode auth login --key <YOUR_KEY>`, then `hulucode scan --local` inside your project.",
+      "Sign in with GitHub, generate an API key, run `hulucode auth login --key <YOUR_KEY>`, then `hulucode scan --local --sync` inside your project.",
   },
   {
     question: "What is the difference between Free and Pro?",

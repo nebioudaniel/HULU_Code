@@ -110,8 +110,8 @@ make install`}</Code>
 
         <Section title="Scan a local project">
           <p>
-            Scanning needs a saved key, but nothing is uploaded. The path
-            defaults to the current directory.
+            Scanning needs a saved key. By default it stays entirely on your
+            machine. The path defaults to the current directory.
           </p>
           <Code>{`hulucode scan --local
 hulucode scan --local ./some/project
@@ -144,6 +144,34 @@ too_large    0
 binary       0
 unsupported  2
 symlink      0`}</Code>
+        </Section>
+
+        <Section title="Sync your project structure">
+          <p>
+            Add {`--sync`} to send the project structure to your dashboard so
+            you can browse it on the web. Only structure is sent: relative
+            file paths, symbol names and kinds, line numbers, import
+            relationships and external package names. Your source code and
+            file contents never leave your machine.
+          </p>
+          <Code>{`hulucode scan --local --sync
+hulucode scan --local --sync --name "My Project"
+hulucode scan --local --sync --dry-run
+hulucode scan --local --sync --yes`}</Code>
+          <Bullets
+            items={[
+              "--sync uploads the project structure to your account.",
+              "--name sets the project name (defaults to the directory name).",
+              "--dry-run prints what would be sent, including the payload size, without sending anything.",
+              "--yes approves the sync without the confirmation prompt.",
+            ]}
+          />
+          <p>
+            The first time you sync a project, the CLI lists exactly what is
+            sent and what is not, and asks for your consent. With {`--yes`} you
+            approve for that run only. Without it, a non-interactive shell
+            refuses to sync until you approve.
+          </p>
         </Section>
 
         <Section title="What is skipped, and why">
@@ -181,9 +209,10 @@ id_rsa*, id_ed25519*, *.keystore, credentials*, secrets*, .npmrc, .netrc`}</Code
 
         <Section title="Your code stays on your machine">
           <p>
-            Scanning never leaves your machine. The CLI walks the directory,
-            applies the rules above and prints a report. Uploading is a
-            separate step that does not exist yet.
+            Scanning always happens locally. A plain {`hulucode scan --local`}{" "}
+            reads your files, builds the report and uploads nothing. Adding{" "}
+            {`--sync`} sends only the project structure, and only after you
+            consent. Your source code is never sent.
           </p>
         </Section>
       </article>
