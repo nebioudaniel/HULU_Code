@@ -25,8 +25,9 @@ const (
 var ErrNotConfigured = errors.New("not configured")
 
 type Config struct {
-	APIKey string `json:"api_key"`
-	APIURL string `json:"api_url"`
+	APIKey      string `json:"api_key"`
+	APIURL      string `json:"api_url"`
+	SyncConsent bool   `json:"sync_consent"`
 }
 
 func Dir() (string, error) {
