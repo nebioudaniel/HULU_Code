@@ -101,6 +101,73 @@ types/                  TypeScript module augmentations
 
 Payments are settled by Chapa and reconciled by `app/api/payments/webhook`. Upgrades set `users.plan_tier` to `pro` with a 30-day `plan_ends_at`.
 
+
+
+## Architecture
+
+huluCode is composed of these pieces:
+
+1. **CLI** (`cli/`) — a local Go tool (Cobra + Tree-sitter). It scans your codebase on your machine and uploads only structure: relative file paths, symbol names and kinds, line numbers, import edges, and external package names.
+2. **Web app** — Next.js 16 (App Router), the product hub.
+3. **API** — the web app exposes `POST /api/v1/auth/validate` and `POST /api/v1/projects/sync`.
+4. **Database** — Postgres with the `vector` extension. Production uses Neon; local development uses `pgvector/pgvector:pg16`.
+5. **Go reference service** (`backend/`) — optional. It exposes the same `POST /auth/validate`; the web app already serves the same endpoint, so this service is not required.
+
+Text diagram:
+
+```text
+hulucode CLI (local) ── POST /api/v1/auth/validate, projects/sync ──>  huluCode web app (Next.js :3000)
+                                                                                        │
+                                                                                        ▼
+                                                                                   Postgres (pgvector)
+```
+
+## Run with Docker
+
+1. (Optional) copy `.env.docker.example` to `.env`, or reuse the existing `.env` (see warnings below).
+2. Start the stack: `docker compose up --build -d`
+3. Open http://localhost:3000.
+
+`docker compose` also runs the migrations in order (`000_extensions`, `001_init`, `002_api_keys`, `003_projects`) automatically on a fresh database.
+
+> **Important:** `migrations/` is only for a fresh local database. Do not run it against an existing Neon database.
+
+## Run without Docker
+
+1. Create a fresh local Postgres database with the `vector` extension.
+2. Copy `.env.example` to `.env` and fill in `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, and `CHAPA_*`.
+3. Run `npm install` then `npm run dev`.
+
+## CLI build requirements
+
+- **macOS:** Xcode Command Line Tools (`xcode-select --install`).
+- **Linux:** `gcc` (any modern distribution) and Go 1.22+.
+- Confirm with `go version` and `gcc --version`.
+
+## Privacy
+
+`hulucode scan --local --sync` sends only this structure:
+
+- The project name, and a content hash of the repository (never the full path).
+- Relative file paths, language, line counts, and whether a file was parsed as partial.
+- Chunk keys, file paths, kinds, names, parents, start/end lines, and content hashes.
+- Import edges between files.
+- External dependency names and counts.
+
+It never sends:
+
+- Any source code or file contents.
+- Absolute paths (only relative paths).
+- Files whose names look like secrets or credentials.
+- API keys, tokens, or database connection strings.
+
+## Project status
+
+huluCode is in early development (v0.1.0). The web app, CLI, and a Go reference backend service are available. API keys, Chapa payments, and project sync are implemented and being finished.
+
+## Screenshots
+
+(TODO: add screenshots in `docs/` for the landing page, dashboard, and sync flow.)
 ## License
 
 MIT. See [LICENSE](LICENSE).
