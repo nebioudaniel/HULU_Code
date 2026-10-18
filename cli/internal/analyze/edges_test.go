@@ -85,8 +85,44 @@ func TestRunResolvesFileEdges(t *testing.T) {
 		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 
-	if strings.Join(result.External, ",") != "fmt,os,react" {
-		t.Errorf("external = %v, want [fmt os react]", result.External)
+	if strings.Join(result.External, ",") != "react" {
+		t.Errorf("external = %v, want [react]", result.External)
+	}
+}
+
+func TestStandardLibraryIsNotExternal(t *testing.T) {
+	cases := []struct {
+		language string
+		spec     string
+		want     bool
+	}{
+		{"Go", "fmt", true},
+		{"Go", "encoding/json", true},
+		{"Go", "net/http", true},
+		{"Go", "github.com/gin-gonic/gin", false},
+		{"Go", "gopkg.in/yaml.v3", false},
+		{"Go", "golang.org/x/text", false},
+		{"TypeScript", "node:crypto", true},
+		{"TypeScript", "fs", true},
+		{"TypeScript", "fs/promises", true},
+		{"TypeScript", "path", true},
+		{"TypeScript", "react", false},
+		{"TypeScript", "next/link", false},
+		{"TypeScript", "@/lib/db", false},
+		{"JavaScript", "node:zlib", true},
+		{"JavaScript", "chalk", false},
+		{"Python", "os", true},
+		{"Python", "os.path", true},
+		{"Python", "collections.abc", true},
+		{"Python", "requests", false},
+		{"Python", "flask.views", false},
+		{"Python", ".models", false},
+	}
+
+	for _, tc := range cases {
+		if got := isStandardLibrary(tc.language, tc.spec); got != tc.want {
+			t.Errorf("isStandardLibrary(%q, %q) = %v, want %v", tc.language, tc.spec, got, tc.want)
+		}
 	}
 }
 

@@ -62,6 +62,9 @@ func buildEdges(root string, files []parser.File) ([]Edge, []string, map[string]
 		for _, spec := range file.Imports {
 			targets, isExternal := resolveImport(file, spec, index, modulePath, aliases)
 			if isExternal {
+				if isStandardLibrary(file.Language, spec) {
+					continue
+				}
 				externalCounts[spec]++
 				if !seenExternal[spec] {
 					seenExternal[spec] = true
