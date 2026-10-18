@@ -112,15 +112,15 @@ func newSymbolChunk(file parser.File, sym parser.Symbol, start int, end int, par
 func wholeFileChunk(file parser.File, lines []string) Chunk {
 	src := sourceRange(lines, 1, file.Lines)
 	return Chunk{
-		ID:           chunkID(file.Path, KindFile, "", "", 0, 0),
-		Path:         file.Path,
-		Language:     file.Language,
-		Kind:         KindFile,
-		StartLine:    1,
-		EndLine:      file.Lines,
-		Imports:      file.Imports,
-		Source:       src,
-		ContentHash:  sha256Hex(src),
+		ID:          chunkID(file.Path, KindFile, "", "", 0, 0),
+		Path:        file.Path,
+		Language:    file.Language,
+		Kind:        KindFile,
+		StartLine:   1,
+		EndLine:     file.Lines,
+		Imports:     file.Imports,
+		Source:      src,
+		ContentHash: sha256Hex(src),
 	}
 }
 

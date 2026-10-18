@@ -3,7 +3,6 @@ package analyze
 import (
 	"encoding/json"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -45,6 +44,7 @@ type tsconfig struct {
 		BaseURL string              `json:"baseUrl"`
 		Paths   map[string][]string `json:"paths"`
 	} `json:"compilerOptions"`
+	Extends string `json:"extends"`
 }
 
 func buildEdges(root string, files []parser.File) ([]Edge, []string) {
@@ -118,7 +118,7 @@ func resolveGo(spec string, index *fileIndex, modulePath string) ([]string, bool
 
 func resolveScript(filePath string, spec string, index *fileIndex, aliases *aliasResolver) ([]string, bool) {
 	if strings.HasPrefix(spec, "./") || strings.HasPrefix(spec, "../") || spec == "." || spec == ".." {
-		base := normalizeDir(path.Join(path.Dir(filePath), spec))
+		base := normalizeDir(filepath.Join(filepath.Dir(filePath), spec))
 
 		return lookupScript(base, index), false
 	}
@@ -142,7 +142,7 @@ func lookupScript(base string, index *fileIndex) []string {
 		}
 	}
 	for _, extension := range scriptExtensions {
-		candidate := path.Join(base, "index"+extension)
+		candidate := filepath.Join(base, "index"+extension)
 		if _, ok := index.byPath[candidate]; ok {
 			return []string{candidate}
 		}
@@ -170,9 +170,9 @@ func resolvePythonRelative(filePath string, spec string, index *fileIndex) []str
 		level++
 	}
 
-	dir := normalizeDir(path.Dir(filePath))
+	dir := normalizeDir(filepath.Dir(filePath))
 	for i := 1; i < level; i++ {
-		dir = normalizeDir(path.Join(dir, ".."))
+		dir = normalizeDir(filepath.Join(dir, ".."))
 	}
 
 	rest := strings.ReplaceAll(spec[level:], ".", "/")
@@ -180,13 +180,13 @@ func resolvePythonRelative(filePath string, spec string, index *fileIndex) []str
 		return index.filesInDir(dir, "Python")
 	}
 
-	if found := lookupPython(path.Join(dir, rest), index); len(found) > 0 {
+	if found := lookupPython(filepath.Join(dir, rest), index); len(found) > 0 {
 		return found
 	}
 
 	init := "__init__.py"
 	if dir != "" {
-		init = path.Join(dir, "__init__.py")
+		init = filepath.Join(dir, "__init__.py")
 	}
 	if _, ok := index.byPath[init]; ok {
 		return []string{init}
@@ -207,7 +207,7 @@ func newFileIndex(files []parser.File) *fileIndex {
 	index := &fileIndex{byPath: map[string]string{}, byDir: map[string][]indexedFile{}}
 	for _, file := range files {
 		index.byPath[file.Path] = file.Language
-		dir := normalizeDir(path.Dir(file.Path))
+		dir := normalizeDir(filepath.Dir(file.Path))
 		index.byDir[dir] = append(index.byDir[dir], indexedFile{path: file.Path, language: file.Language})
 	}
 
@@ -231,7 +231,7 @@ func (f *fileIndex) filesInDir(dir string, language string) []string {
 }
 
 func normalizeDir(dir string) string {
-	dir = path.Clean(dir)
+	dir = filepath.Clean(dir)
 	if dir == "." || dir == "/" {
 		return ""
 	}
@@ -256,7 +256,8 @@ func readModulePath(root string) string {
 }
 
 func readAliases(root string) *aliasResolver {
-	data, err := os.ReadFile(filepath.Join(root, "tsconfig.json"))
+	pathToConfig := filepath.Join(root, "tsconfig.json")
+	data, err := os.ReadFile(pathToConfig)
 	if err != nil {
 		return nil
 	}
@@ -265,6 +266,40 @@ func readAliases(root string) *aliasResolver {
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil
 	}
+
+	configDir := filepath.Dir(pathToConfig)
+	baseDir := configDir
+	baseDirResolved := false
+	visited := map[string]bool{pathToConfig: true}
+	for config.Extends != "" && !visited[filepath.Clean(config.Extends)] {
+		extendsPath := config.Extends
+		if !filepath.IsAbs(extendsPath) {
+			extendsPath = filepath.Join(configDir, extendsPath)
+		}
+		extendsPath = filepath.Clean(extendsPath)
+		visited[extendsPath] = true
+		more, err := os.ReadFile(extendsPath)
+		if err != nil {
+			break
+		}
+		var moreCfg tsconfig
+		if json.Unmarshal(more, &moreCfg) != nil {
+			break
+		}
+		configDir = filepath.Dir(extendsPath)
+		for key, targets := range moreCfg.CompilerOptions.Paths {
+			if _, ok := config.CompilerOptions.Paths[key]; !ok {
+				config.CompilerOptions.Paths[key] = targets
+			}
+		}
+		if config.CompilerOptions.BaseURL == "" && moreCfg.CompilerOptions.BaseURL != "" {
+			config.CompilerOptions.BaseURL = moreCfg.CompilerOptions.BaseURL
+			baseDir = configDir
+			baseDirResolved = true
+		}
+		config.Extends = moreCfg.Extends
+	}
+
 	if len(config.CompilerOptions.Paths) == 0 {
 		return nil
 	}
@@ -276,7 +311,16 @@ func readAliases(root string) *aliasResolver {
 	}
 	sort.Slice(mappings, func(i, j int) bool { return len(mappings[i].prefix) > len(mappings[j].prefix) })
 
-	return &aliasResolver{baseURL: normalizeDir(config.CompilerOptions.BaseURL), mappings: mappings}
+	if config.CompilerOptions.BaseURL != "" && !baseDirResolved {
+		baseDir = filepath.Join(baseDir, config.CompilerOptions.BaseURL)
+	}
+	rel, err := filepath.Rel(root, baseDir)
+	if err != nil {
+		rel = "."
+	}
+	baseURL := normalizeDir(rel)
+
+	return &aliasResolver{baseURL: baseURL, mappings: mappings}
 }
 
 func splitPattern(key string) (string, string, bool) {
@@ -299,8 +343,7 @@ func (a *aliasResolver) resolve(spec string) (string, bool) {
 			if strings.Contains(target, "*") {
 				replaced = strings.Replace(target, "*", star, 1)
 			}
-
-			return normalizeDir(path.Join(a.baseURL, replaced)), true
+			return normalizeDir(filepath.Join(a.baseURL, replaced)), true
 		}
 	}
 
