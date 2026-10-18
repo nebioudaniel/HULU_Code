@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { logError } from "@/lib/errors";
 import { getPlanLimits } from "@/lib/plans";
 
 import { generateApiKey, hashApiKey } from "./api-key-hash";
@@ -29,7 +30,8 @@ export async function countActiveApiKeys(userId: string): Promise<number> {
       [userId]
     );
     return result.rows[0]?.count ?? 0;
-  } catch {
+  } catch (error) {
+    logError("Could not count API keys", error, "count api keys");
     return 0;
   }
 }
@@ -53,10 +55,7 @@ export async function listApiKeys(userId: string): Promise<ApiKeyRecord[]> {
       status: row.revoked_at ? "Revoked" : "Active",
     }));
   } catch (error) {
-    console.error(
-      "Could not list API keys:",
-      error instanceof Error ? error.message : "unknown error"
-    );
+    logError("Could not list API keys", error, "list api keys");
     return [];
   }
 }
@@ -114,10 +113,7 @@ export async function createApiKey(
       },
     };
   } catch (error) {
-    console.error(
-      "Could not create API key:",
-      error instanceof Error ? error.message : "unknown error"
-    );
+    logError("Could not create API key", error, "create api key");
     return {
       ok: false,
       error: "Could not save the key. Please try again.",
@@ -158,9 +154,10 @@ export async function verifyApiKey(rawKey: string): Promise<ApiKeyVerification> 
         [keyHash]
       );
     } catch (error) {
-      console.error(
-        "Could not update last_used_at:",
-        error instanceof Error ? error.message : "unknown error"
+      logError(
+        "Could not update last_used_at",
+        error,
+        "update api key last used"
       );
     }
 
@@ -171,10 +168,7 @@ export async function verifyApiKey(rawKey: string): Promise<ApiKeyVerification> 
       planTier: row.plan_tier,
     };
   } catch (error) {
-    console.error(
-      "Could not verify API key:",
-      error instanceof Error ? error.message : "unknown error"
-    );
+    logError("Could not verify API key", error, "verify api key");
     return { ok: false, status: 500, error: "Database error" };
   }
 }
@@ -198,10 +192,7 @@ export async function revokeApiKey(
 
     return { ok: true };
   } catch (error) {
-    console.error(
-      "Could not revoke API key:",
-      error instanceof Error ? error.message : "unknown error"
-    );
+    logError("Could not revoke API key", error, "revoke api key");
     return { ok: false, error: "Could not revoke the key." };
   }
 }

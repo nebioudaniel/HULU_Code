@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { auth } from "@/auth";
 import { pool } from "@/lib/db";
+import { logError } from "@/lib/errors";
 import { ensurePaymentsSchema } from "@/lib/payments";
 
 const CHAPA_BASE_URL = "https://api.chapa.global/v2";
@@ -68,7 +69,10 @@ export async function POST() {
       chapaData.status !== "success" ||
       !chapaData.data?.checkout_url
     ) {
-      console.error("Chapa initialize failed:", chapaData);
+      console.error("Chapa initialize failed", {
+        step: "initialize chapa",
+        status: chapaRes.status,
+      });
       return NextResponse.json(
         { error: chapaData.message || "Failed to initialize payment" },
         { status: 400 }
@@ -94,7 +98,7 @@ export async function POST() {
       tx_ref: merchantReference,
     });
   } catch (error) {
-    console.error("Error initializing payment:", error);
+    logError("Error initializing payment", error, "initialize payment");
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

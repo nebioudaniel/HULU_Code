@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { verifyAndFulfill } from "@/lib/chapa";
+import { logError } from "@/lib/errors";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    console.error("Payment status error:", error);
+    logError("Payment status error", error, "check payment status");
     return NextResponse.json({ error: "Status check failed" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { auth } from "@/auth";
 import { pool } from "@/lib/db";
+import { logError } from "@/lib/errors";
 import { ensurePaymentsSchema } from "@/lib/payments";
 import {
   initiateMobileCharge,
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
         : "Approve the payment on your phone to finish.",
     });
   } catch (error) {
-    console.error("Mobile charge error:", error);
+    logError("Mobile charge error", error, "start charge");
 
     await pool
       .query("UPDATE payments SET status = 'failed' WHERE tx_ref = $1", [txRef])
