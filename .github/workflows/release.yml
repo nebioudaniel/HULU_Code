@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: macos-latest
+            os: darwin
+            arch: amd64
+          - runs-on: ubuntu-latest
+            os: linux
+            arch: amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      - run: cd cli && CGO_ENABLED=1 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X 'github.com/nebioudaniel/HULU_Code/cli/internal/config.DefaultAPIURL=http://localhost:3000'" -o hulucode_${{ matrix.os }}_${{ matrix.arch }} .
+      - run: cd cli && sha256sum hulucode_${{ matrix.os }}_${{ matrix.arch }} > hulucode_${{ matrix.os }}_${{ matrix.arch }}.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.os }}-${{ matrix.arch }}
+          path: cli/hulucode_${{ matrix.os }}_${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.os }}-${{ matrix.arch }}-checksum
+          path: cli/hulucode_${{ matrix.os }}_${{ matrix.arch }}.sha256
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: |
+          tag=${GITHUB_REF#refs/tags/}
+          gh release create "$tag" artifacts/*/*.sha256 artifacts/*/hulucode_* --title "$tag" --notes "CLI binaries for $tag"
+        env:
+          GH_TOKEN: ${{ github.token }}

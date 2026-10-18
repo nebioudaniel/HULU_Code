@@ -25,6 +25,20 @@ export PATH="$PATH:$(go env GOPATH)/bin"
 
 `make install` is used instead of `go install .` because the module path ends in `/cli`, so a plain `go install` would name the binary `cli`. The Makefile builds it explicitly as `hulucode`.
 
+## Prebuilt binaries
+
+Prebuilt binaries are attached to each GitHub release tagged `v*`. Download the file for your platform:
+
+- `hulucode_darwin_amd64` — macOS (Intel)
+- `hulucode_linux_amd64` — Linux
+
+Make the file executable and move it onto your `PATH`:
+
+```sh
+chmod +x hulucode_darwin_amd64
+mv hulucode_darwin_amd64 /usr/local/bin/hulucode
+```
+
 Other targets: `make test`, `make vet`, `make fmt`, `make clean`.
 
 ## Configuration
