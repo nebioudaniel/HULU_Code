@@ -26,6 +26,7 @@ services:
       context: .
       args:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        DB_DRIVER: pg
     restart: unless-stopped
     depends_on:
       db:
@@ -34,6 +35,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-hulu}:${POSTGRES_PASSWORD:-hulu}@db:5432/${POSTGRES_DB:-hulu}
+      DB_DRIVER: pg
     ports:
       - "3000:3000"
 

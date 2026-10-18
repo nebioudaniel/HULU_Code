@@ -66,6 +66,7 @@ Open http://localhost:3000.
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Neon Postgres connection string (pooled). |
+| `DB_DRIVER` | Set to `pg` for local/Docker Postgres. Unset for Neon and Cloudflare. |
 | `AUTH_SECRET` | Signs Auth.js session cookies. Generate with `openssl rand -base64 32`. |
 | `AUTH_GITHUB_ID` | GitHub OAuth App client ID. |
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App client secret. |
