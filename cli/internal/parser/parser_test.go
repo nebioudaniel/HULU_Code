@@ -148,6 +148,7 @@ export { add, COUNT };
 export * from "./extra";
 
 const local = function () { return 1; };
+const legacy = require("./legacy");
 `
 
 func TestParseTypeScript(t *testing.T) {
@@ -156,7 +157,7 @@ func TestParseTypeScript(t *testing.T) {
 	if file.Partial {
 		t.Error("a valid file should not be partial")
 	}
-	requireImports(t, file, []string{"react", "./hooks", "../types", "./extra"})
+	requireImports(t, file, []string{"react", "./hooks", "../types", "./extra", "./legacy"})
 
 	if sym := requireSymbol(t, file, KindExport, "COUNT"); !sym.Exported {
 		t.Error("COUNT should be exported")

@@ -21,11 +21,17 @@ func parseScript(root *sitter.Node, src []byte, file *File) {
 
 	walk(root, func(node *sitter.Node) bool {
 		switch node.Type() {
-		case "import_statement":
+		case "import_statement", "export_statement":
 			collectScriptSource(node, src, file, seenImports)
-			return false
+		case "call_expression":
+			collectRequire(node, src, file, seenImports)
+		}
+		return true
+	})
+
+	walk(root, func(node *sitter.Node) bool {
+		switch node.Type() {
 		case "export_statement":
-			collectScriptSource(node, src, file, seenImports)
 			handleScriptExport(node, src, file)
 			return false
 		}
@@ -37,6 +43,28 @@ func parseScript(root *sitter.Node, src []byte, file *File) {
 
 		return true
 	})
+}
+
+func collectRequire(node *sitter.Node, src []byte, file *File, seen map[string]bool) {
+	fn := node.ChildByFieldName("function")
+	if fn == nil || fn.Type() != "identifier" || fn.Content(src) != "require" {
+		return
+	}
+	args := node.ChildByFieldName("arguments")
+	if args == nil {
+		return
+	}
+	for i := 0; i < int(args.ChildCount()); i++ {
+		a := args.Child(i)
+		if a.Type() == "string" {
+			if inner := firstChildOfType(a, "string_fragment"); inner != nil {
+				appendUnique(&file.Imports, seen, unquote(inner.Content(src)))
+				return
+			}
+			appendUnique(&file.Imports, seen, unquote(a.Content(src)))
+			return
+		}
+	}
 }
 
 func collectScriptSource(node *sitter.Node, src []byte, file *File, seen map[string]bool) {
