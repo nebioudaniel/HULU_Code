@@ -68,6 +68,30 @@ export function UpgradeModal({
   const [attempt, setAttempt] = useState(0)
   const [paidAt, setPaidAt] = useState<Date | null>(null)
   const [mock, setMock] = useState(false)
+  const [directChargeEnabled, setDirectChargeEnabled] = useState(false)
+  const [optionsReady, setOptionsReady] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+
+    let cancelled = false
+
+    fetch("/api/payments/config", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setDirectChargeEnabled(Boolean(data?.directChargeEnabled))
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setOptionsReady(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const providerLabel =
     method === "card"
@@ -280,7 +304,14 @@ export function UpgradeModal({
               showReceipt && "overflow-y-auto"
             )}
           >
-            {state === "form" && (
+            {state === "form" && !optionsReady && (
+              <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-muted-foreground">
+                <Loader2 className="size-6 animate-spin text-primary" />
+                <p className="text-sm">Loading payment options…</p>
+              </div>
+            )}
+
+            {state === "form" && optionsReady && directChargeEnabled && (
               <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-4">
                 <div className="flex flex-col gap-2.5">
                   <span className="text-xs font-medium text-muted-foreground">
@@ -400,6 +431,22 @@ export function UpgradeModal({
                     : `Pay ${PRICE} ETB`}
                 </Button>
               </form>
+            )}
+
+            {state === "form" && optionsReady && !directChargeEnabled && (
+              <div className="flex flex-col gap-4 p-4">
+                <p className="text-xs text-muted-foreground">
+                  You&apos;ll be redirected to a secure Chapa checkout to pay.
+                </p>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button
+                  type="button"
+                  className="w-full rounded-lg"
+                  onClick={startHosted}
+                >
+                  Pay with Chapa
+                </Button>
+              </div>
             )}
 
             {state === "initializing" && (
