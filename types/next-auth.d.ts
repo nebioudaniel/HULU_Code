@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       plan_tier: string;
       plan_ends_at?: string | null;
+      plan_chosen: boolean;
     } & DefaultSession["user"];
   }
 }

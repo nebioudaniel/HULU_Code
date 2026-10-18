@@ -1,16 +1,7 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { pool } from "@/lib/db";
-
-function errorCode(error: unknown): string | undefined {
-  if (typeof error === "object" && error !== null && "code" in error) {
-    const code = (error as { code?: unknown }).code;
-    if (typeof code === "string" || typeof code === "number") {
-      return String(code);
-    }
-  }
-  return undefined;
-}
+import { logError } from "@/lib/errors";
 
 export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
   trustHost: true,
@@ -55,21 +46,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
 
         return true;
       } catch (error) {
-        console.error("Sign-in denied", {
-          step: "upsert user",
-          name: error instanceof Error ? error.name : "UnknownError",
-          code: errorCode(error),
-        });
+        logError("Sign-in denied", error, "upsert user");
         return false;
       }
     },
 
     async session({ session, token }) {
+      session.user.plan_chosen = false;
+
       const githubId = token.github_id ?? token.sub;
       if (githubId) {
         try {
           const res = await pool.query(
-            "SELECT id, plan_tier, plan_ends_at FROM users WHERE github_id = $1",
+            "SELECT id, plan_tier, plan_ends_at, plan_chosen FROM users WHERE github_id = $1",
             [githubId]
           );
 
@@ -78,9 +67,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth(() => ({
             session.user.id = dbUser.id;
             session.user.plan_tier = dbUser.plan_tier;
             session.user.plan_ends_at = dbUser.plan_ends_at;
+            session.user.plan_chosen = Boolean(dbUser.plan_chosen);
           }
         } catch (error) {
-          console.error("Error fetching user session data from Neon:", error);
+          logError("Session lookup failed", error, "load session user");
         }
       }
       return session;
