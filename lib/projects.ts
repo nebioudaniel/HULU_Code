@@ -10,7 +10,6 @@ const MAX_NAME = 80;
 const MAX_PATH = 500;
 const MAX_FIELD = 200;
 const MAX_ROOT_HASH = 128;
-const INSERT_BATCH = 1_000;
 const ROOT_HASH = /^[a-f0-9]{16,128}$/;
 
 type Client = PoolClient;
@@ -341,27 +340,24 @@ function countLanguages(files: SyncFileInput[]): Record<string, number> {
   return counts;
 }
 
+type ColumnDef = { name: string; cast: string };
+
 async function insertRows(
   client: Client,
   table: string,
-  columns: string[],
+  columns: ColumnDef[],
   rows: unknown[][]
 ): Promise<void> {
-  for (let start = 0; start < rows.length; start += INSERT_BATCH) {
-    const slice = rows.slice(start, start + INSERT_BATCH);
-    const values: unknown[] = [];
-    const groups = slice.map((row) => {
-      const placeholders = row.map((value) => {
-        values.push(value);
-        return `$${values.length}`;
-      });
-      return `(${placeholders.join(",")})`;
-    });
-    await client.query(
-      `INSERT INTO ${table} (${columns.join(",")}) VALUES ${groups.join(",")}`,
-      values
-    );
+  if (rows.length === 0) {
+    return;
   }
+  const columnList = columns.map((c) => c.name).join(", ");
+  const unnestArgs = columns.map((_, i) => `$${i + 1}::${columns[i].cast}[]`).join(", ");
+  const params = columns.map((_, i) => rows.map((row) => row[i]));
+  await client.query(
+    `INSERT INTO ${table} (${columnList}) SELECT * FROM unnest(${unnestArgs})`,
+    params
+  );
 }
 
 export async function syncProject(
@@ -453,24 +449,30 @@ export async function syncProject(
     await insertRows(
       client,
       "project_files",
-      ["project_id", "path", "language", "line_count", "partial"],
+      [
+        { name: "project_id", cast: "text" },
+        { name: "path", cast: "text" },
+        { name: "language", cast: "text" },
+        { name: "line_count", cast: "int" },
+        { name: "partial", cast: "boolean" },
+      ],
       payload.files.map((file) => [projectId, file.path, file.language, file.line_count, file.partial])
     );
     await insertRows(
       client,
       "code_chunks",
       [
-        "project_id",
-        "chunk_key",
-        "file_path",
-        "language",
-        "kind",
-        "name",
-        "parent",
-        "start_line",
-        "end_line",
-        "content_hash",
-        "uses_goroutines",
+        { name: "project_id", cast: "text" },
+        { name: "chunk_key", cast: "text" },
+        { name: "file_path", cast: "text" },
+        { name: "language", cast: "text" },
+        { name: "kind", cast: "text" },
+        { name: "name", cast: "text" },
+        { name: "parent", cast: "text" },
+        { name: "start_line", cast: "int" },
+        { name: "end_line", cast: "int" },
+        { name: "content_hash", cast: "text" },
+        { name: "uses_goroutines", cast: "boolean" },
       ],
       payload.chunks.map((chunk) => [
         projectId,
@@ -489,7 +491,11 @@ export async function syncProject(
     await insertRows(
       client,
       "project_edges",
-      ["project_id", "from_path", "to_path"],
+      [
+        { name: "project_id", cast: "text" },
+        { name: "from_path", cast: "text" },
+        { name: "to_path", cast: "text" },
+      ],
       payload.edges.map((edge) => [projectId, edge.from, edge.to])
     );
 
