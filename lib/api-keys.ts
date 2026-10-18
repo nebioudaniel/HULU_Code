@@ -1,9 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import { pool } from "@/lib/db";
 import { getPlanLimits } from "@/lib/plans";
 
-const KEY_BODY_BYTES = 32;
+import { generateApiKey, hashApiKey } from "./api-key-hash";
+
+export { generateApiKey, hashApiKey };
+
 const DISPLAY_PREFIX_LENGTH = 12;
 
 export type ApiKeyStatus = "Active" | "Revoked";
@@ -20,14 +21,6 @@ export type ApiKeyRecord = {
 export type CreateApiKeyResult =
   | { ok: true; key: string; record: ApiKeyRecord }
   | { ok: false; error: string; status: number };
-
-export function generateApiKey(): string {
-  return `hulu_sk_${randomBytes(KEY_BODY_BYTES).toString("base64url")}`;
-}
-
-export function hashApiKey(key: string): string {
-  return createHash("sha256").update(key, "utf8").digest("hex");
-}
 
 export async function countActiveApiKeys(userId: string): Promise<number> {
   try {
