@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAndFulfill } from "@/lib/chapa";
+import { logError } from "@/lib/errors";
+import { paymentDestination } from "@/lib/plan-routing";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -7,23 +9,23 @@ export async function GET(req: Request) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
   if (!tx_ref) {
-    return NextResponse.redirect(`${appUrl}/dashboard?error=missing_ref`);
+    return NextResponse.redirect(
+      `${appUrl}${paymentDestination("unknown")}`
+    );
   }
 
   try {
     const result = await verifyAndFulfill(tx_ref);
+    const destination =
+      result.state === "success"
+        ? "/dashboard?payment=success"
+        : paymentDestination(result.state);
 
-    if (result.state === "success") {
-      return NextResponse.redirect(`${appUrl}/dashboard?payment=success`);
-    }
-
-    if (result.state === "unknown") {
-      return NextResponse.redirect(`${appUrl}/dashboard?error=unknown_ref`);
-    }
-
-    return NextResponse.redirect(`${appUrl}/select-plan?error=payment_failed`);
+    return NextResponse.redirect(`${appUrl}${destination}`);
   } catch (error) {
-    console.error("Verification error:", error);
-    return NextResponse.redirect(`${appUrl}/dashboard?error=verification_error`);
+    logError("Payment verification failed", error, "verify payment");
+    return NextResponse.redirect(
+      `${appUrl}/select-plan?error=verification_error`
+    );
   }
 }

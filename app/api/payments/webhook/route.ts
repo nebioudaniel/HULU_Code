@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
+import { logError } from "@/lib/errors";
 import { ensurePaymentsSchema } from "@/lib/payments";
 
 type ChapaWebhookPayload = {
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
           planEndsAt.setDate(planEndsAt.getDate() + 30);
 
           await pool.query(
-            "UPDATE users SET plan_tier = 'pro', plan_ends_at = $1 WHERE id = $2",
+            "UPDATE users SET plan_tier = 'pro', plan_ends_at = $1, plan_chosen = true WHERE id = $2",
             [planEndsAt, user_id]
           );
         }
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook processing error:", error);
+    logError("Webhook processing error", error, "process webhook");
     return NextResponse.json({ error: "Webhook failed" }, { status: 500 });
   }
 }

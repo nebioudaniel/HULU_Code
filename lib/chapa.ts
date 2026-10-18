@@ -199,16 +199,24 @@ async function markFailed(txRef: string): Promise<void> {
 }
 
 async function fulfillPro(txRef: string, userId: string): Promise<void> {
-  await pool.query("UPDATE payments SET status = 'success' WHERE tx_ref = $1", [
-    txRef,
-  ]);
+  const result = await pool.query(
+    `UPDATE payments
+        SET status = 'success'
+      WHERE tx_ref = $1 AND status <> 'success'
+      RETURNING user_id`,
+    [txRef]
+  );
+
+  if (result.rows.length === 0) {
+    return;
+  }
 
   const planEndsAt = new Date();
   planEndsAt.setDate(planEndsAt.getDate() + 30);
 
   await pool.query(
     `UPDATE users
-     SET plan_tier = 'pro', plan_ends_at = $1
+     SET plan_tier = 'pro', plan_ends_at = $1, plan_chosen = true
      WHERE id = $2`,
     [planEndsAt, userId]
   );
