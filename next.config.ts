@@ -23,8 +23,6 @@ const nextConfig: NextConfig = {
     agentFeedback: true,
     mcpServer: false,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
     rules: {
       "*.css": {

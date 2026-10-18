@@ -11,8 +11,6 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-export const instant = false
-
 export default async function DashboardLayout({
   children,
 }: {

@@ -4,8 +4,6 @@ import { connection } from "next/server"
 import { auth } from "@/auth"
 import { SelectPlanCards } from "./SelectPlanCards"
 
-export const instant = false
-
 export default async function SelectPlanPage() {
   await connection()
 
