@@ -1,6 +1,6 @@
 {
   "$schema": "https://developers.cloudflare.com/schemas/wrangler.jsonc",
-  "name": "hulucode",
+  "name": "hulu-code",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-10-18",
   "compatibility_flags": ["nodejs_compat"],
