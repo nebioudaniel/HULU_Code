@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://hulu:hulu@localhost:5432/hulu
+      AUTH_SECRET: x${{ github.run_id }}
+      AUTH_GITHUB_ID: x
+      AUTH_GITHUB_SECRET: x
+      CHAPA_SECRET_KEY: x
+      CHAPA_V1_SECRET_KEY: x
+      CHAPA_WEBHOOK_SECRET: x
+      NEXT_PUBLIC_CHAPA_PUBLIC_KEY: x
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      - run: cd cli && go vet ./...
+      - run: cd cli && go test -count=1 ./...
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      - run: cd backend && go vet ./...
+      - run: cd backend && go test -count=1 ./...

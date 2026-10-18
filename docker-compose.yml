@@ -1,0 +1,57 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hulu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hulu}
+      POSTGRES_DB: ${POSTGRES_DB:-hulu}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-hulu} -d ${POSTGRES_DB:-hulu}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-hulu}:${POSTGRES_PASSWORD:-hulu}@db:5432/${POSTGRES_DB:-hulu}
+    ports:
+      - "3000:3000"
+
+  backend:
+    profiles: ["backend"]
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-hulu}:${POSTGRES_PASSWORD:-hulu}@db:5432/${POSTGRES_DB:-hulu}
+      PORT: "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  db_data:
