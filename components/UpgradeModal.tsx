@@ -163,6 +163,11 @@ export function UpgradeModal({
       const data = await res.json().catch(() => null)
 
       if (!res.ok || !data?.tx_ref) {
+        if (res.status === 404) {
+          setError("Mobile money is not available yet. Please pay with Chapa.")
+          setState("form")
+          return
+        }
         throw new Error(data?.error ?? "Failed to start the charge")
       }
 
