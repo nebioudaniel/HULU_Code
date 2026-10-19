@@ -182,6 +182,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      process.env.AUTH_URL?.trim();
+    if (!appUrl) {
+      return NextResponse.json(
+        { error: "NEXT_PUBLIC_APP_URL is not configured." },
+        { status: 500 }
+      );
+    }
+
     const verifyUrl = buildVerifyUrl(txRef);
     if (!verifyUrl) {
       return NextResponse.json(
