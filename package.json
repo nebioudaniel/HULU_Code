@@ -17,6 +17,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "npx next typegen && npx tsc --noEmit",
     "test": "node --experimental-strip-types --test",
     "cf:build": "CF_BUILD=1 opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare preview",
