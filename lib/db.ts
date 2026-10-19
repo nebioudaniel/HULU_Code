@@ -1,7 +1,7 @@
+import { logError } from "./errors.ts";
+
 import { Pool } from "@neondatabase/serverless";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-import { logError } from "@/lib/errors";
 
 function usesNeon(url: string | undefined): boolean {
   if (!url) {

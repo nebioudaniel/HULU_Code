@@ -1,4 +1,4 @@
-import { pool } from "@/lib/db";
+import { pool } from "./db.ts";
 
 let schemaReady: Promise<void> | null = null;
 
