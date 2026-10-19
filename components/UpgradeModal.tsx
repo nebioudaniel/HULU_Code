@@ -228,7 +228,7 @@ export function UpgradeModal({
   }
 
   async function payInline() {
-    if (!inlineScriptLoaded || !inlineCheckoutRef.current) {
+    if (!inlineScriptLoaded || !(window as unknown as { ChapaCheckout?: unknown }).ChapaCheckout) {
       setError("Inline checkout is not available yet. Please try again.")
       return
     }
@@ -240,11 +240,13 @@ export function UpgradeModal({
       process.env.NEXT_PUBLIC_APP_URL?.trim() || window.location.origin
 
     try {
-      const chapa = new (window as unknown as {
+      const ChapaCheckout = (window as unknown as {
         ChapaCheckout: new (config: Record<string, unknown>) => {
           initialize: (id: string) => void
         }
-      }).ChapaCheckout({
+      }).ChapaCheckout
+
+      const chapa = new ChapaCheckout({
         publicKey: process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY!,
         amount: PRICE,
         currency: "ETB",
