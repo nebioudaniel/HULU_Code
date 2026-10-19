@@ -5,6 +5,7 @@ export async function GET() {
     {
       directChargeEnabled:
         process.env.CHAPA_DIRECT_CHARGE_ENABLED === "true",
+      enableDemoUpgrade: process.env.ENABLE_DEMO_UPGRADE === "true",
     },
     { headers: { "Cache-Control": "no-store" } }
   );

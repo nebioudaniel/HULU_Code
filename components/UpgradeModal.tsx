@@ -78,6 +78,7 @@ export function UpgradeModal({
   const [paidAt, setPaidAt] = useState<Date | null>(null)
   const [mock, setMock] = useState(false)
   const [directChargeEnabled, setDirectChargeEnabled] = useState(false)
+  const [enableDemoUpgrade, setEnableDemoUpgrade] = useState(false)
   const [optionsReady, setOptionsReady] = useState(false)
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export function UpgradeModal({
       .then((data) => {
         if (!cancelled) {
           setDirectChargeEnabled(Boolean(data?.directChargeEnabled))
+          setEnableDemoUpgrade(Boolean(data?.enableDemoUpgrade))
         }
       })
       .catch(() => {})
@@ -175,6 +177,30 @@ export function UpgradeModal({
       setMock(Boolean(data.mock))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
+      setState("form")
+    }
+  }
+
+  async function payDemo() {
+    setError(null)
+    setState("processing")
+
+    try {
+      const res = await fetch("/api/payments/demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await res.json().catch(() => null)
+
+      if (!res.ok || !data?.tx_ref) {
+        throw new Error(data?.error ?? "Demo upgrade failed")
+      }
+
+      setTxRef(data.tx_ref as string)
+      setPaidAt(new Date())
+      setState("complete")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Demo upgrade failed")
       setState("form")
     }
   }
@@ -470,6 +496,20 @@ export function UpgradeModal({
                 <p className="text-xs text-muted-foreground">
                   You&apos;ll be redirected to a secure Chapa checkout to pay.
                 </p>
+                {enableDemoUpgrade && (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Demo mode: no real payment is made.
+                    </p>
+                    <Button
+                      type="button"
+                      className="w-full rounded-lg"
+                      onClick={payDemo}
+                    >
+                      Try Pro (demo, no payment)
+                    </Button>
+                  </>
+                )}
                 {needsEmail && (
                   <CheckoutEmail value={email} onChange={setEmail} />
                 )}

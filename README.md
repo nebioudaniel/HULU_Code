@@ -76,6 +76,7 @@ Open http://localhost:3000.
 | `CHAPA_WEBHOOK_SECRET` | Verifies `x-chapa-signature` on payment webhooks. |
 | `NEXT_PUBLIC_CHAPA_PUBLIC_KEY` | Chapa publishable key. Currently unused by the code. |
 | `NEXT_PUBLIC_APP_URL` | Base URL used for payment redirect links, e.g. `http://localhost:3000`. |
+| `ENABLE_DEMO_UPGRADE` | Set to `true` only for local demo testing. MUST stay off in any real deployment. |
 
 Set the GitHub OAuth callback URL to `http://localhost:3000/api/auth/callback/github` while developing locally.
 
