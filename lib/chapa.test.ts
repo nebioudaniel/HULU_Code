@@ -49,6 +49,30 @@ test("detectKeyKind identifies unknown key", () => {
   assert.equal(detectKeyKind("sk_test_abc123"), "unknown");
 });
 
+test("detectKeyKind identifies CHASECK_TEST prefix as v1test", () => {
+  assert.equal(detectKeyKind("CHASECK_TEST-x"), "v1test");
+});
+
+test("detectKeyKind identifies CHASECK prefix as v1", () => {
+  assert.equal(detectKeyKind("CHASECK-x"), "v1");
+});
+
+test("detectKeyKind identifies CHAPA_TEST_x as v2test", () => {
+  assert.equal(detectKeyKind("CHAPA_TEST_x"), "v2test");
+});
+
+test("detectKeyKind identifies CHAPA_LIVE_x as v2live", () => {
+  assert.equal(detectKeyKind("CHAPA_LIVE_x"), "v2live");
+});
+
+test("detectKeyKind identifies CHAPUBK_TEST as public", () => {
+  assert.equal(detectKeyKind("CHAPUBK_TEST-x"), "public");
+});
+
+test("detectKeyKind identifies empty string as unknown", () => {
+  assert.equal(detectKeyKind(""), "unknown");
+});
+
 test("getKeyKind reads from CHAPA_SECRET_KEY", () => {
   const restore = envWith("CHAPA_TEST_sk_live_abc");
   try {
@@ -207,6 +231,11 @@ test("modeMatchesKeyKind rejects mismatched mode", () => {
   assert.equal(modeMatchesKeyKind("live", "v1test"), false);
 });
 
+test("modeMatchesKeyKind matches v1 key in any mode", () => {
+  assert.equal(modeMatchesKeyKind("test", "v1"), true);
+  assert.equal(modeMatchesKeyKind("live", "v1"), true);
+});
+
 test("getWebhookSignatureHeader prefers x-chapa-signature for v2", () => {
   const req = {
     headers: {
@@ -225,4 +254,14 @@ test("getWebhookSignatureHeader accepts chapa-signature for v1", () => {
     },
   };
   assert.equal(getWebhookSignatureHeader(req, "v1test"), "v1sig");
+});
+
+test("getWebhookSignatureHeader accepts chapa-signature for v1 key kind", () => {
+  const req = {
+    headers: {
+      get: (name: string) =>
+        name === "chapa-signature" ? "v1sig" : null,
+    },
+  };
+  assert.equal(getWebhookSignatureHeader(req, "v1"), "v1sig");
 });
