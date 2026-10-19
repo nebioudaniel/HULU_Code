@@ -8,7 +8,7 @@ const PRO_PRICE = 59.9;
 const PRO_CURRENCY = "ETB";
 
 export type PaymentState = "success" | "failed" | "pending" | "unknown";
-export type KeyKind = "v2test" | "v2live" | "v1test" | "v1live" | "public" | "unknown";
+export type KeyKind = "v2test" | "v2live" | "v1test" | "v1live" | "v1" | "public" | "unknown";
 
 export type VerifyResult = {
   state: PaymentState;
@@ -46,6 +46,7 @@ export function detectKeyKind(key: string): KeyKind {
   if (key.startsWith("CHAPA_LIVE_")) return "v2live";
   if (key.startsWith("CHASECK_TEST")) return "v1test";
   if (key.startsWith("CHASECK_LIVE")) return "v1live";
+  if (key.startsWith("CHASECK")) return "v1";
   if (key.startsWith("CHAPUBK")) return "public";
   return "unknown";
 }
@@ -230,6 +231,26 @@ async function verifyHostedPaymentV2(
     return { state: "success", userId };
   }
 
+  if (chapaStatus === "success") {
+    console.error("chapa verify mismatch", {
+      step: "chapa verify mismatch",
+      expectedAmount: PRO_PRICE,
+      receivedAmount: amount,
+      expectedCurrency: PRO_CURRENCY,
+      receivedCurrency: currency,
+      mode: kind,
+    });
+  } else {
+    logChapaError({
+      step: "chapa v2 verify",
+      api: "v2",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
+  }
+
   return { state: "pending", userId };
 }
 
@@ -253,15 +274,42 @@ async function verifyHostedPayment(
 
   const data = await res.json().catch(() => null);
   const chapaStatus: string | undefined = data?.data?.status;
+  const kind = detectKeyKind(secretKey);
 
   if (data?.status === "success" && chapaStatus === "success") {
     await fulfillPro(txRef, userId);
     return { state: "success", userId };
   }
 
-  if (chapaStatus && FAILED_STATES.includes(chapaStatus)) {
+  if (!res.ok) {
+    logChapaError({
+      step: "chapa v1 verify",
+      api: "v1",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
+  } else if (chapaStatus && FAILED_STATES.includes(chapaStatus)) {
     await markFailed(txRef);
+    logChapaError({
+      step: "chapa v1 verify",
+      api: "v1",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
     return { state: "failed", userId };
+  } else {
+    logChapaError({
+      step: "chapa v1 verify",
+      api: "v1",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
   }
 
   return { state: "pending", userId };
@@ -278,15 +326,42 @@ async function verifyMobileCharge(
 
   const data = await res.json().catch(() => null);
   const chapaStatus: string | undefined = data?.data?.status;
+  const kind = detectKeyKind(getV1Key());
 
   if (data?.status === "success" && chapaStatus === "success") {
     await fulfillPro(txRef, userId);
     return { state: "success", userId };
   }
 
-  if (chapaStatus && FAILED_STATES.includes(chapaStatus)) {
+  if (!res.ok) {
+    logChapaError({
+      step: "chapa v1 verify",
+      api: "v1",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
+  } else if (chapaStatus && FAILED_STATES.includes(chapaStatus)) {
     await markFailed(txRef);
+    logChapaError({
+      step: "chapa v1 verify",
+      api: "v1",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
     return { state: "failed", userId };
+  } else {
+    logChapaError({
+      step: "chapa v1 verify",
+      api: "v1",
+      keyKind: kind,
+      httpStatus: res.status,
+      chapaStatus,
+      chapaMessage: data?.message,
+    });
   }
 
   return { state: "pending", userId };
@@ -321,6 +396,44 @@ async function fulfillPro(txRef: string, userId: string): Promise<void> {
      WHERE id = $2`,
     [planEndsAt, userId]
   );
+}
+
+function summarizeChapaMessageForLog(message: unknown): unknown {
+  if (typeof message === "string") {
+    return message.slice(0, 200);
+  }
+  if (message && typeof message === "object" && !Array.isArray(message)) {
+    const obj = message as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    const messages: Record<string, string> = {};
+    for (const key of keys) {
+      const value = obj[key];
+      messages[key] =
+        typeof value === "string" ? value.slice(0, 200) : String(value).slice(0, 200);
+    }
+    return { keys, messages };
+  }
+  return undefined;
+}
+
+export function logChapaError(params: {
+  step: string;
+  api: "v1" | "v2";
+  keyKind: KeyKind | undefined;
+  httpStatus?: number;
+  chapaStatus?: string | undefined;
+  errorCode?: string | undefined;
+  chapaMessage?: unknown;
+}): void {
+  console.error("chapa error", {
+    step: params.step,
+    api: params.api,
+    keyKind: params.keyKind,
+    httpStatus: params.httpStatus,
+    chapaStatus: params.chapaStatus,
+    errorCode: params.errorCode,
+    chapaMessage: summarizeChapaMessageForLog(params.chapaMessage),
+  });
 }
 
 let v2ResponseKeysLogged = false;
@@ -409,10 +522,15 @@ export async function initializeV2Hosted(
   if (!res.ok || data?.status !== "success") {
     const errorCode = data?.error?.code;
     const message = typeof data?.message === "string" ? data.message : "";
-    console.error("chapa v2 initialize error", {
+    const kind = detectKeyKind(getChapaSecretKey() ?? "");
+    logChapaError({
       step: "chapa v2 initialize",
+      api: "v2",
+      keyKind: kind,
       httpStatus: res.status,
+      chapaStatus: data?.status,
       errorCode,
+      chapaMessage: data?.message,
     });
 
     if (errorCode === "INVALID_VALUE" && /email/i.test(message)) {
@@ -527,7 +645,7 @@ export function getWebhookSignatureHeader(
   keyKind: KeyKind | undefined
 ): string | null {
   const isV1 =
-    keyKind === "v1test" || keyKind === "v1live";
+    keyKind === "v1test" || keyKind === "v1live" || keyKind === "v1";
   if (isV1) {
     return req.headers.get("chapa-signature") ?? req.headers.get("x-chapa-signature");
   }
@@ -540,10 +658,10 @@ export function modeMatchesKeyKind(
 ): boolean {
   if (!mode || !keyKind) return true;
   if (mode === "test") {
-    return keyKind === "v2test" || keyKind === "v1test";
+    return keyKind === "v2test" || keyKind === "v1test" || keyKind === "v1";
   }
   if (mode === "live") {
-    return keyKind === "v2live" || keyKind === "v1live";
+    return keyKind === "v2live" || keyKind === "v1live" || keyKind === "v1";
   }
   return true;
 }
