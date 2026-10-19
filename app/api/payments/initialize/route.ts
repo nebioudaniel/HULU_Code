@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { auth } from "@/auth";
-import { getChapaSecretKey, getKeyKind, initializeV2Hosted } from "@/lib/chapa";
+import { getChapaSecretKey, getKeyKind, initializeV2Hosted, logChapaError } from "@/lib/chapa";
 import { pool } from "@/lib/db";
 import { isValidEmail } from "@/lib/email";
 import { logError } from "@/lib/errors";
@@ -86,7 +86,8 @@ export async function POST(req: Request) {
     (keyKind !== "v2test" &&
       keyKind !== "v2live" &&
       keyKind !== "v1test" &&
-      keyKind !== "v1live")
+      keyKind !== "v1live" &&
+      keyKind !== "v1")
   ) {
     return NextResponse.json(
       { error: "Payments are not configured correctly." },
@@ -217,11 +218,20 @@ export async function POST(req: Request) {
           : undefined;
 
       if (!chapaRes.ok || chapaStatus !== "success" || !checkoutUrlFromRes) {
-        console.error({
-          step: "chapa initialize",
+        const errorCode =
+          (chapaData as { error?: { code?: string } | null })?.error?.code;
+        const message =
+          typeof chapaData?.message === "string"
+            ? chapaData.message
+            : chapaData?.message;
+        logChapaError({
+          step: "chapa v1 initialize",
+          api: "v1",
+          keyKind,
           httpStatus: chapaRes.status,
           chapaStatus,
-          chapaMessage: summarizeChapaMessage(chapaData?.message),
+          errorCode,
+          chapaMessage: message,
         });
 
         return NextResponse.json(
