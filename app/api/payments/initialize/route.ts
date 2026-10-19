@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { auth } from "@/auth";
-import { getChapaSecretKey, getKeyKind, initializeV2Hosted, logChapaError } from "@/lib/chapa";
+import { getChapaSecretKey, detectKeyKind, getKeyKind, initializeV2Hosted, logChapaError } from "@/lib/chapa";
 import { pool } from "@/lib/db";
 import { isValidEmail } from "@/lib/email";
 import { logError } from "@/lib/errors";
@@ -89,6 +89,13 @@ export async function POST(req: Request) {
       keyKind !== "v1live" &&
       keyKind !== "v1")
   ) {
+    const key = getChapaSecretKey();
+    console.error("chapa key shape", {
+      step: "chapa key shape",
+      present: Boolean(key),
+      length: key ? key.length : 0,
+      kind: key ? detectKeyKind(key) : undefined,
+    });
     return NextResponse.json(
       { error: "Payments are not configured correctly." },
       { status: 500 }
