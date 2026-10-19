@@ -211,7 +211,7 @@ export async function POST(req: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          amount: String(amount),
+          amount,
           currency,
           email,
           first_name: firstName,
