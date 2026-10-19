@@ -11,6 +11,8 @@ import { DashboardTopbar } from "@/components/dashboard/topbar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { pool } from "@/lib/db"
+import { verifyAndFulfill } from "@/lib/chapa"
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +34,17 @@ export default async function DashboardLayout({
   const current = session?.user
   if (!current) {
     redirect("/")
+  }
+
+  const oneHourAgo = new Date();
+  oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+  const { rows: pendingRows } = await pool.query(
+    "SELECT tx_ref FROM payments WHERE user_id = $1 AND status = 'pending' AND created_at > $2 ORDER BY created_at DESC LIMIT 1",
+    [current.id, oneHourAgo]
+  )
+
+  if (pendingRows.length > 0) {
+    await verifyAndFulfill(pendingRows[0].tx_ref, { userId: current.id })
   }
 
   const user: DashboardUser = {

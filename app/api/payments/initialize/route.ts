@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { auth } from "@/auth";
-import { getChapaSecretKey } from "@/lib/chapa";
+import { getChapaSecretKey, getKeyKind, initializeV2Hosted } from "@/lib/chapa";
 import { pool } from "@/lib/db";
 import { isValidEmail } from "@/lib/email";
 import { logError } from "@/lib/errors";
 import { ensurePaymentsSchema } from "@/lib/payments";
 
-const CHAPA_INITIALIZE_URL = "https://api.chapa.co/v1/transaction/initialize";
+const CHAPA_V1_BASE_URL = "https://api.chapa.co/v1";
+const CHAPA_INITIALIZE_URL = `${CHAPA_V1_BASE_URL}/transaction/initialize`;
 
 type ChapaInitializeResponse = {
   status?: unknown;
@@ -79,14 +80,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const secretKey = getChapaSecretKey();
-  if (!secretKey) {
-    console.error("CHAPA_SECRET_KEY is not configured");
+  const keyKind = getKeyKind();
+  if (
+    !keyKind ||
+    (keyKind !== "v2test" &&
+      keyKind !== "v2live" &&
+      keyKind !== "v1test" &&
+      keyKind !== "v1live")
+  ) {
     return NextResponse.json(
       { error: "Payments are not configured correctly." },
       { status: 500 }
     );
   }
+
+  const isV2 = keyKind === "v2test" || keyKind === "v2live";
 
   let body: { email?: unknown; phone?: unknown } = {};
   try {
@@ -122,94 +130,132 @@ export async function POST(req: Request) {
   const phoneNumber = /^0[97]\d{8}$/.test(rawPhone) ? rawPhone : undefined;
 
   const txRef = `tx_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const amount = "59.9";
+  const amount = 59.9;
   const currency = "ETB";
+  const channel = isV2 ? "hosted_v2" : "hosted";
 
-  const verifyUrl = buildVerifyUrl(txRef);
-  if (!verifyUrl) {
-    return NextResponse.json(
-      { error: "Payments are not configured correctly." },
-      { status: 500 }
-    );
-  }
+  await ensurePaymentsSchema();
 
-  const returnUrl = verifyUrl.toString();
-  const callbackUrl = returnUrl;
+  await pool.query(
+    `INSERT INTO payments (user_id, tx_ref, amount, currency, status, channel)
+     VALUES ($1, $2, $3, $4, 'pending', $5)`,
+    [session.user.id, txRef, amount, currency, channel]
+  );
 
-  try {
-    await ensurePaymentsSchema();
+  let checkoutUrl: string;
+  let chapaReference: string | null = null;
 
-    await pool.query(
-      `INSERT INTO payments (user_id, tx_ref, amount, currency, status)
-       VALUES ($1, $2, $3, $4, 'pending')`,
-      [session.user.id, txRef, amount, currency]
-    );
-
-    const chapaRes = await fetch(CHAPA_INITIALIZE_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+  if (isV2) {
+    try {
+      const result = await initializeV2Hosted({
+        txRef,
         amount,
         currency,
         email,
-        first_name: firstName,
-        last_name: lastName,
-        ...(phoneNumber ? { phone_number: phoneNumber } : {}),
-        tx_ref: txRef,
-        return_url: returnUrl,
-        callback_url: callbackUrl,
-      }),
-    });
+        firstName,
+        lastName,
+        phoneNumber: phoneNumber ? `+251${phoneNumber.replace(/^0/, "")}` : undefined,
+        userId: session.user.id,
+      });
+      checkoutUrl = result.checkoutUrl;
+      chapaReference = result.chapaReference;
+    } catch (error) {
+      logError("V2 checkout initialize failed", error, "initialize v2 checkout");
+      const message =
+        error instanceof Error ? error.message : "Payment could not be started. Please try again later.";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  } else {
+    const secretKey = getChapaSecretKey();
+    if (!secretKey) {
+      return NextResponse.json(
+        { error: "Payments are not configured correctly." },
+        { status: 500 }
+      );
+    }
 
-    const chapaData = (await chapaRes.json().catch(() => null)) as
-      | ChapaInitializeResponse
-      | null;
+    const verifyUrl = buildVerifyUrl(txRef);
+    if (!verifyUrl) {
+      return NextResponse.json(
+        { error: "Payments are not configured correctly." },
+        { status: 500 }
+      );
+    }
 
-    const chapaStatus =
-      typeof chapaData?.status === "string" ? chapaData.status : undefined;
-    const checkoutUrl =
-      typeof chapaData?.data?.checkout_url === "string"
-        ? chapaData.data.checkout_url
-        : undefined;
+    const returnUrl = verifyUrl.toString();
+    const callbackUrl = returnUrl;
 
-    if (!chapaRes.ok || chapaStatus !== "success" || !checkoutUrl) {
-      console.error({
-        step: "chapa initialize",
-        httpStatus: chapaRes.status,
-        chapaStatus,
-        chapaMessage: summarizeChapaMessage(chapaData?.message),
+    try {
+      const chapaRes = await fetch(CHAPA_INITIALIZE_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: String(amount),
+          currency,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          ...(phoneNumber ? { phone_number: phoneNumber } : {}),
+          tx_ref: txRef,
+          return_url: returnUrl,
+          callback_url: callbackUrl,
+        }),
       });
 
+      const chapaData = (await chapaRes.json().catch(() => null)) as
+        | ChapaInitializeResponse
+        | null;
+
+      const chapaStatus =
+        typeof chapaData?.status === "string" ? chapaData.status : undefined;
+      const checkoutUrlFromRes =
+        typeof chapaData?.data?.checkout_url === "string"
+          ? chapaData.data.checkout_url
+          : undefined;
+
+      if (!chapaRes.ok || chapaStatus !== "success" || !checkoutUrlFromRes) {
+        console.error({
+          step: "chapa initialize",
+          httpStatus: chapaRes.status,
+          chapaStatus,
+          chapaMessage: summarizeChapaMessage(chapaData?.message),
+        });
+
+        return NextResponse.json(
+          { error: failureMessage(chapaRes.status, chapaData?.message) },
+          { status: 400 }
+        );
+      }
+
+      checkoutUrl = checkoutUrlFromRes;
+
+      const chapaReferenceFromRes =
+        typeof chapaData?.data?.chapa_reference === "string"
+          ? chapaData.data.chapa_reference
+          : null;
+
+      chapaReference = chapaReferenceFromRes;
+    } catch (error) {
+      logError("Error initializing payment", error, "initialize payment");
       return NextResponse.json(
-        { error: failureMessage(chapaRes.status, chapaData?.message) },
-        { status: 400 }
+        { error: "Payment could not be started. Please try again later." },
+        { status: 500 }
       );
     }
+  }
 
-    const chapaReference =
-      typeof chapaData?.data?.chapa_reference === "string"
-        ? chapaData.data.chapa_reference
-        : null;
-
-    if (chapaReference) {
-      await pool.query(
-        `UPDATE payments SET chapa_reference = $1 WHERE tx_ref = $2`,
-        [chapaReference, txRef]
-      );
-    }
-
-    return NextResponse.json({
-      checkout_url: checkoutUrl,
-      tx_ref: txRef,
-    });
-  } catch (error) {
-    logError("Error initializing payment", error, "initialize payment");
-    return NextResponse.json(
-      { error: "Payment could not be started. Please try again later." },
-      { status: 500 }
+  if (chapaReference) {
+    await pool.query(
+      `UPDATE payments SET chapa_reference = $1 WHERE tx_ref = $2`,
+      [chapaReference, txRef]
     );
   }
+
+  return NextResponse.json({
+    checkout_url: checkoutUrl,
+    tx_ref: txRef,
+  });
 }

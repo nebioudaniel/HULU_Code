@@ -3,6 +3,7 @@ import { connection } from "next/server"
 import { CreditCard } from "lucide-react"
 
 import { auth } from "@/auth"
+import { checkPaymentStatus } from "../../actions/check-payment-status"
 import { UpgradeToProButton } from "../upgrade-to-pro-button"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
@@ -78,6 +79,14 @@ export default async function BillingPage() {
   const planLabel = getPlanLabel(session.user.plan_tier)
   const payments = await getPayments(session.user.id)
 
+  async function checkStatus(_formData: FormData) {
+    "use server"
+    const result = await checkPaymentStatus()
+    if (result.state === "success") {
+      redirect("/dashboard/billing")
+    }
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -121,6 +130,17 @@ export default async function BillingPage() {
           )}
         </CardContent>
       </Card>
+
+      {session?.user?.id && !isPro && (
+        <form action={checkStatus} className="mt-6">
+          <button
+            type="submit"
+            className="rounded-lg border border-input bg-background px-4 py-2 text-sm hover:bg-muted"
+          >
+            Check payment status
+          </button>
+        </form>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-base font-medium tracking-tight text-foreground">
