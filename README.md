@@ -11,7 +11,7 @@ The web app is the product hub around the (not yet released) local CLI.
 - **Landing page** — product overview, features, pricing, FAQ.
 - **Sign in with GitHub** — OAuth via Auth.js. Users are stored in Neon Postgres.
 - **Dashboard** — overview with usage stats and a get-started checklist, plus pages for projects, queries, API keys, usage, billing and account settings.
-- **Chapa payments** — Pro upgrades in ETB. Supports Chapa's hosted checkout (card and bank) and v1 Direct Charge for Ethiopian mobile money (Telebirr, M-Pesa, CBE Birr, Awash Birr, Yaya Wallet). Webhook signature verification is included.
+- **Chapa payments** — Pro upgrades in ETB via Chapa's hosted checkout (card and bank). Webhook signature verification is included.
 - **Free and Pro plans** — plan limits are defined in `lib/plans.ts` and drive the dashboard copy and meters.
 
 ## Roadmap
@@ -71,10 +71,7 @@ Open http://localhost:3000.
 | `AUTH_GITHUB_ID` | GitHub OAuth App client ID. |
 | `AUTH_GITHUB_SECRET` | GitHub OAuth App client secret. |
 | `CHAPA_SECRET_KEY` | Chapa secret key for hosted checkout initialize/verify. |
-| `CHAPA_V1_SECRET_KEY` | Chapa v1 secret key for mobile money Direct Charge. |
-| `CHAPA_DIRECT_CHARGE_ENABLED` | Set to `true` only after Chapa enables direct charges for the account. |
 | `CHAPA_WEBHOOK_SECRET` | Verifies `x-chapa-signature` on payment webhooks. |
-| `NEXT_PUBLIC_CHAPA_PUBLIC_KEY` | Chapa publishable key. Currently unused by the code. |
 | `NEXT_PUBLIC_APP_URL` | Base URL used for payment redirect links, e.g. `http://localhost:3000`. |
 | `ENABLE_DEMO_UPGRADE` | Set to `true` only for local demo testing. MUST stay off in any real deployment. |
 

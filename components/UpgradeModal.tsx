@@ -5,19 +5,14 @@ import {
   useEffect,
   useRef,
   useState,
-  type FormEvent,
 } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Dialog } from "radix-ui"
-import { Check, CreditCard, Loader2, XIcon } from "lucide-react"
+import { Loader2, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import {
-  PaymentLogo,
-  type PaymentProviderId,
-} from "@/components/payment-logos"
 import { ReceiptPrinter } from "@/components/ReceiptPrinter"
 import { isValidEmail } from "@/lib/email"
 import { cn } from "@/lib/utils"
@@ -27,17 +22,7 @@ const PRINT_DURATION_MS = 1800
 const AUTO_REDIRECT_MS = 2600
 const ORDER_REFERENCE = "ORD-2048"
 const PRICE = "59.9"
-const INLINE_SCRIPT_URL = "https://js.chapa.co/v1/inline.js"
 
-const PROVIDERS: { id: PaymentProviderId; label: string }[] = [
-  { id: "telebirr", label: "Telebirr" },
-  { id: "mpesa", label: "M-Pesa" },
-  { id: "cbebirr", label: "CBE Birr" },
-  { id: "awashbirr", label: "Awash Birr" },
-  { id: "yaya", label: "Yaya Wallet" },
-]
-
-type Method = PaymentProviderId | "card"
 
 type ModalState =
   | "form"
@@ -67,10 +52,8 @@ export function UpgradeModal({
   const needsEmail =
     sessionStatus !== "loading" && !isValidEmail(sessionEmail)
   const [state, setState] = useState<ModalState>("form")
-  const [method, setMethod] = useState<Method>("telebirr")
   const [email, setEmail] = useState("")
   const checkoutEmail = useRef("")
-  const [phone, setPhone] = useState("")
   const [txRef, setTxRef] = useState<string | null>(null)
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -78,15 +61,8 @@ export function UpgradeModal({
   const [attempt, setAttempt] = useState(0)
   const [paidAt, setPaidAt] = useState<Date | null>(null)
   const [mock, setMock] = useState(false)
-  const [directChargeEnabled, setDirectChargeEnabled] = useState(false)
   const [enableDemoUpgrade, setEnableDemoUpgrade] = useState(false)
   const [optionsReady, setOptionsReady] = useState(false)
-  const [inlineScriptLoaded, setInlineScriptLoaded] = useState(false)
-  const [inlineLoading, setInlineLoading] = useState(false)
-  const inlineCheckoutRef = useRef<{ initialize: (id: string) => void } | null>(
-    null
-  )
-  const inlineContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -97,7 +73,6 @@ export function UpgradeModal({
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) {
-          setDirectChargeEnabled(Boolean(data?.directChargeEnabled))
           setEnableDemoUpgrade(Boolean(data?.enableDemoUpgrade))
         }
       })
@@ -111,32 +86,12 @@ export function UpgradeModal({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
 
-    const script = document.createElement("script")
-    script.src = INLINE_SCRIPT_URL
-    script.async = true
-    script.onload = () => setInlineScriptLoaded(true)
-    document.head.appendChild(script)
-
-    return () => {
-      document.head.removeChild(script)
-      setInlineScriptLoaded(false)
-    }
-  }, [open])
-
-  const providerLabel =
-    method === "card"
-      ? "Card / Bank"
-      : (PROVIDERS.find((item) => item.id === method)?.label ?? method)
-
+  const providerLabel = "Chapa"
   const reset = useCallback(() => {
     setState("form")
-    setMethod("telebirr")
     setEmail("")
     checkoutEmail.current = ""
-    setPhone("")
     setTxRef(null)
     setCheckoutUrl(null)
     setError(null)
@@ -164,45 +119,6 @@ export function UpgradeModal({
     [onOpenChange, reset]
   )
 
-  async function payMobile(event: FormEvent) {
-    event.preventDefault()
-    setError(null)
-
-    const local = phone.replace(/\D/g, "").replace(/^251/, "").replace(/^0/, "")
-
-    if (!/^9\d{8}$/.test(local)) {
-      setError("Enter a valid Ethiopian mobile number (e.g. 912 345 678)")
-      return
-    }
-
-    setTxRef(null)
-    setState("processing")
-
-    try {
-      const res = await fetch("/api/payments/charge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: `0${local}`, provider: method }),
-      })
-      const data = await res.json().catch(() => null)
-
-      if (!res.ok || !data?.tx_ref) {
-        if (res.status === 404) {
-          setError("Mobile money is not available yet. Please pay with Chapa.")
-          setState("form")
-          return
-        }
-        throw new Error(data?.error ?? "Failed to start the charge")
-      }
-
-      setTxRef(data.tx_ref as string)
-      setMock(Boolean(data.mock))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-      setState("form")
-    }
-  }
-
   async function payDemo() {
     setError(null)
     setState("processing")
@@ -227,115 +143,6 @@ export function UpgradeModal({
     }
   }
 
-  async function payInline() {
-    if (!inlineScriptLoaded || !(window as unknown as { ChapaCheckout?: unknown }).ChapaCheckout) {
-      setError("Inline checkout is not available yet. Please try again.")
-      return
-    }
-
-    if (!process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY) {
-      setError("Inline checkout is not configured. Please contact support.")
-      return
-    }
-
-    setError(null)
-    setInlineLoading(true)
-
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.trim() || window.location.origin
-
-    try {
-      const ChapaCheckout = (window as unknown as {
-        ChapaCheckout: new (config: Record<string, unknown>) => {
-          initialize: (id: string) => void
-        }
-      }).ChapaCheckout
-
-      const chapa = new ChapaCheckout({
-        publicKey: process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY!,
-        amount: PRICE,
-        currency: "ETB",
-        availablePaymentMethods: [
-          "telebirr",
-          "cbebirr",
-          "ebirr",
-          "mpesa",
-          "chapa",
-        ],
-        customizations: {
-          buttonText: "Pay Now",
-          styles: "",
-        },
-        callbackUrl: `${appUrl}/api/payments/webhook`,
-        returnUrl: `${appUrl}/api/payments/verify`,
-        onSuccessfulPayment: (data: Record<string, unknown>) => {
-          const raw = data as {
-            tx_ref?: string
-            reference?: string
-            id?: string
-            data?: { tx_ref?: string; reference?: string; id?: string }
-          } | undefined
-          const txRef =
-            raw?.tx_ref ??
-            raw?.reference ??
-            raw?.id ??
-            raw?.data?.tx_ref ??
-            raw?.data?.reference ??
-            raw?.data?.id
-          if (txRef) {
-            setInlineLoading(false)
-            verifyInlinePayment(txRef)
-          } else {
-            setInlineLoading(false)
-            setError("Payment completed but reference is missing.")
-            setState("form")
-          }
-        },
-        onPaymentFailure: (error: Record<string, unknown>) => {
-          setInlineLoading(false)
-          setError(
-            typeof error?.message === "string"
-              ? error.message
-              : "Payment failed."
-          )
-          setState("form")
-        },
-        onClose: () => {
-          setInlineLoading(false)
-          setState("form")
-        },
-      })
-
-      inlineCheckoutRef.current = chapa
-      chapa.initialize("inline-payment-container")
-    } catch (err) {
-      setInlineLoading(false)
-      setError(err instanceof Error ? err.message : "Inline checkout failed")
-      setState("form")
-    }
-  }
-
-  async function verifyInlinePayment(txRef: string) {
-    try {
-      const res = await fetch(`/api/payments/inline-verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx_ref: txRef }),
-      })
-      const data = await res.json()
-
-      if (res.ok && data?.status === "success") {
-        setPaidAt(new Date())
-        setState("complete")
-      } else {
-        setError(data?.error ?? "Payment verification failed.")
-        setState("form")
-      }
-    } catch {
-      setError("Payment verification failed. Please contact support.")
-      setState("form")
-    }
-  }
 
   const startHosted = useCallback(() => {
     if (needsEmail && !isValidEmail(email)) {
@@ -348,15 +155,6 @@ export function UpgradeModal({
     setState("initializing")
     setAttempt((value) => value + 1)
   }, [email, needsEmail])
-
-  function handleSubmit(event: FormEvent) {
-    if (method === "card") {
-      event.preventDefault()
-      startHosted()
-      return
-    }
-    void payMobile(event)
-  }
 
   useEffect(() => {
     if (!open || attempt === 0) return
@@ -497,133 +295,7 @@ export function UpgradeModal({
               </div>
             )}
 
-            {state === "form" && optionsReady && directChargeEnabled && (
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-4">
-                <div className="flex flex-col gap-2.5">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Choose a payment method
-                  </span>
-                  <div
-                    role="radiogroup"
-                    aria-label="Payment method"
-                    className="grid grid-cols-2 gap-2"
-                  >
-                    {PROVIDERS.map((item) => {
-                      const selected = method === item.id
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          onClick={() => setMethod(item.id)}
-                          className={cn(
-                            "relative flex items-center gap-2.5 rounded-xl border p-2.5 text-left text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                            selected
-                              ? "border-primary bg-primary/5 text-foreground"
-                              : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                          )}
-                        >
-                          <span className="flex size-8 shrink-0 overflow-hidden rounded-md ring-1 ring-black/5">
-                            <PaymentLogo
-                              provider={item.id}
-                              className="size-8"
-                            />
-                          </span>
-                          <span className="min-w-0 truncate">{item.label}</span>
-                          {selected && (
-                            <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                              <Check className="size-2.5" strokeWidth={3} />
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={method === "card"}
-                      onClick={() => setMethod("card")}
-                      className={cn(
-                        "relative flex items-center gap-2.5 rounded-xl border p-2.5 text-left text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                        method === "card"
-                          ? "border-primary bg-primary/5 text-foreground"
-                          : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )}
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
-                        <CreditCard className="size-4" />
-                      </span>
-                      <span className="min-w-0 truncate">Card / Bank</span>
-                      {method === "card" && (
-                        <span className="absolute top-1.5 right-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                          <Check className="size-2.5" strokeWidth={3} />
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {method !== "card" ? (
-                  <div className="flex flex-col gap-1.5">
-                    <label
-                      htmlFor="upgrade-phone"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Phone number
-                    </label>
-                    <div className="flex items-stretch overflow-hidden rounded-lg border border-input bg-background transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 dark:bg-input/30">
-                      <span className="flex items-center gap-1.5 border-r border-input px-3 text-sm font-medium text-muted-foreground">
-                        <span aria-hidden className="text-base leading-none">
-                          🇪🇹
-                        </span>
-                        +251
-                      </span>
-                      <input
-                        id="upgrade-phone"
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel-national"
-                        value={phone}
-                        onChange={(event) =>
-                          setPhone(
-                            event.target.value
-                              .replace(/[^\d\s]/g, "")
-                              .slice(0, 13)
-                          )
-                        }
-                        placeholder="912 345 678"
-                        className="h-9 w-full min-w-0 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground/60"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      We&apos;ll send an approval request to your phone via{" "}
-                      {providerLabel}.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    You&apos;ll be redirected to a secure Chapa checkout to pay
-                    with a card or bank transfer.
-                  </p>
-                )}
-
-                {method === "card" && needsEmail && (
-                  <CheckoutEmail value={email} onChange={setEmail} />
-                )}
-
-                {error && <p className="text-sm text-destructive">{error}</p>}
-
-                <Button type="submit" className="w-full rounded-lg">
-                  {method === "card"
-                    ? "Continue to checkout"
-                    : `Pay ${PRICE} ETB`}
-                </Button>
-              </form>
-            )}
-
-            {state === "form" && optionsReady && !directChargeEnabled && (
+            {state === "form" && optionsReady && (
               <div className="flex flex-col gap-4 p-4">
                 <p className="text-xs text-muted-foreground">
                   You&apos;ll be redirected to a secure Chapa checkout to pay.
@@ -653,26 +325,6 @@ export function UpgradeModal({
                 >
                   Pay with Chapa
                 </Button>
-                {inlineScriptLoaded && (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      Or pay directly with Chapa inline checkout:
-                    </p>
-                    <Button
-                      type="button"
-                      className="w-full rounded-lg"
-                      onClick={payInline}
-                      disabled={inlineLoading}
-                    >
-                      {inlineLoading ? "Preparing…" : "Pay Inline"}
-                    </Button>
-                    <div
-                      ref={inlineContainerRef}
-                      id="inline-payment-container"
-                      className="mt-2 rounded-lg border border-border"
-                    />
-                  </div>
-                )}
               </div>
             )}
 

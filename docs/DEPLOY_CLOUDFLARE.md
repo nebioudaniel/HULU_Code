@@ -45,9 +45,7 @@ This project is on the Cloudflare Free plan. No paid services are used.
 - `AUTH_GITHUB_ID` — GitHub OAuth App client ID.
 - `AUTH_GITHUB_SECRET` — GitHub OAuth App client secret.
 - `CHAPA_SECRET_KEY` — Chapa secret key for hosted checkout.
-- `CHAPA_V1_SECRET_KEY` — Chapa v1 secret key for mobile money Direct Charge.
 - `CHAPA_WEBHOOK_SECRET` — verifies `x-chapa-signature` on payment webhooks.
-- `NEXT_PUBLIC_CHAPA_PUBLIC_KEY` — Chapa publishable key (currently unused by the code).
 
 Variable names only are listed here; never paste real values into this document.
 

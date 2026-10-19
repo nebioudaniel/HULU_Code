@@ -17,23 +17,7 @@ export type VerifyResult = {
 
 const FAILED_STATES = ["failed", "cancelled", "incomplete", "blocked"];
 
-export const MOBILE_PROVIDERS = [
-  "telebirr",
-  "mpesa",
-  "cbebirr",
-  "awashbirr",
-  "yaya",
-] as const;
-
-export type MobileProvider = (typeof MOBILE_PROVIDERS)[number];
-
 export const MOCK_CHANNEL = "mock";
-
-export const DIRECT_CHARGE_UNAVAILABLE_MESSAGE =
-  "Mobile money is not available yet. Please pay with Chapa checkout.";
-
-export const DIRECT_CHARGE_FAILED_MESSAGE =
-  "Could not start the mobile money charge. Please try again.";
 
 export function getChapaSecretKey(): string | undefined {
   const raw = process.env.CHAPA_SECRET_KEY?.trim();
@@ -57,77 +41,6 @@ export function getKeyKind(): KeyKind | undefined {
   return detectKeyKind(key);
 }
 
-export function isMobileMoneyConfigured(): boolean {
-  return Boolean(process.env.CHAPA_V1_SECRET_KEY?.trim());
-}
-
-export function isMockMobileMoneyEnabled(): boolean {
-  if (process.env.NODE_ENV === "production") return false;
-  return (
-    process.env.ENABLE_MOCK_PAYMENTS === "true" && !isMobileMoneyConfigured()
-  );
-}
-
-function getV1Key(): string {
-  const key = process.env.CHAPA_V1_SECRET_KEY?.trim();
-  if (!key) {
-    throw new Error("CHAPA_V1_SECRET_KEY is not configured");
-  }
-  return key;
-}
-
-export type InitiateMobileChargeInput = {
-  txRef: string;
-  amount: number;
-  currency: string;
-  phone: string;
-  provider: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-};
-
-export async function initiateMobileCharge(
-  input: InitiateMobileChargeInput
-): Promise<void> {
-  const form = new FormData();
-  form.append("amount", String(input.amount));
-  form.append("currency", input.currency);
-  form.append("tx_ref", input.txRef);
-  form.append("mobile", input.phone);
-  if (input.email) form.append("email", input.email);
-  if (input.firstName) form.append("first_name", input.firstName);
-  if (input.lastName) form.append("last_name", input.lastName);
-
-  const res = await fetch(
-    `${CHAPA_V1_BASE_URL}/charges?type=${encodeURIComponent(input.provider)}`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${getV1Key()}` },
-      body: form,
-    }
-  );
-
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok || data?.status !== "success") {
-    const message = typeof data?.message === "string" ? data.message : "";
-
-    if (
-      /not\s+(allowed|enabled|permitted|authorized|authorised|available)|disabled|forbidden/i.test(
-        message
-      )
-    ) {
-      console.error("Chapa direct charge unavailable", {
-        status: res.status,
-        chapaStatus: data?.status,
-      });
-      throw new Error(DIRECT_CHARGE_UNAVAILABLE_MESSAGE);
-    }
-
-    throw new Error(DIRECT_CHARGE_FAILED_MESSAGE);
-  }
-}
 
 export async function verifyAndFulfill(
   txRef: string,
@@ -172,10 +85,7 @@ export async function verifyAndFulfill(
     return verifyHostedPaymentV2(txRef, user_id, chapa_reference);
   }
 
-  const isMobile = Boolean(channel) && channel !== "hosted";
-  return isMobile
-    ? verifyMobileCharge(txRef, user_id)
-    : verifyHostedPayment(txRef, user_id);
+  return verifyHostedPayment(txRef, user_id);
 }
 
 async function verifyHostedPaymentV2(
@@ -275,58 +185,6 @@ async function verifyHostedPayment(
   const data = await res.json().catch(() => null);
   const chapaStatus: string | undefined = data?.data?.status;
   const kind = detectKeyKind(secretKey);
-
-  if (data?.status === "success" && chapaStatus === "success") {
-    await fulfillPro(txRef, userId);
-    return { state: "success", userId };
-  }
-
-  if (!res.ok) {
-    logChapaError({
-      step: "chapa v1 verify",
-      api: "v1",
-      keyKind: kind,
-      httpStatus: res.status,
-      chapaStatus,
-      chapaMessage: data?.message,
-    });
-  } else if (chapaStatus && FAILED_STATES.includes(chapaStatus)) {
-    await markFailed(txRef);
-    logChapaError({
-      step: "chapa v1 verify",
-      api: "v1",
-      keyKind: kind,
-      httpStatus: res.status,
-      chapaStatus,
-      chapaMessage: data?.message,
-    });
-    return { state: "failed", userId };
-  } else {
-    logChapaError({
-      step: "chapa v1 verify",
-      api: "v1",
-      keyKind: kind,
-      httpStatus: res.status,
-      chapaStatus,
-      chapaMessage: data?.message,
-    });
-  }
-
-  return { state: "pending", userId };
-}
-
-async function verifyMobileCharge(
-  txRef: string,
-  userId: string
-): Promise<VerifyResult> {
-  const res = await fetch(
-    `${CHAPA_V1_BASE_URL}/transaction/verify/${encodeURIComponent(txRef)}`,
-    { headers: { Authorization: `Bearer ${getV1Key()}` } }
-  );
-
-  const data = await res.json().catch(() => null);
-  const chapaStatus: string | undefined = data?.data?.status;
-  const kind = detectKeyKind(getV1Key());
 
   if (data?.status === "success" && chapaStatus === "success") {
     await fulfillPro(txRef, userId);
