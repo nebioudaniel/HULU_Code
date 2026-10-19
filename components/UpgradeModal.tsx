@@ -233,6 +233,11 @@ export function UpgradeModal({
       return
     }
 
+    if (!process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY) {
+      setError("Inline checkout is not configured. Please contact support.")
+      return
+    }
+
     setError(null)
     setInlineLoading(true)
 
