@@ -154,6 +154,8 @@ func runSync(
 			fmt.Fprintln(out, "Large project: syncing a subfolder is faster")
 		}
 
+		fmt.Fprintf(out, "  Batches: %d files, %d chunks, %d edges\\n", (len(payload.Files)+199)/200, (len(payload.Chunks)+119)/120, (len(payload.Edges)+299)/300)
+
 		return nil
 	}
 
@@ -178,7 +180,102 @@ func runSync(
 
 	fmt.Fprintf(cmd.ErrOrStderr(), "Syncing %s...\n", meta.Name)
 
-	res, err := api.NewClient(apiURL).Sync(cmd.Context(), saved.APIKey, payload)
+	client := api.NewClient(apiURL)
+	syncID := api.NewSyncID()
+
+	fileBatches := chunkSlice(payload.Files, 200)
+	chunkBatches := chunkSlice(payload.Chunks, 120)
+	edgeBatches := chunkSlice(payload.Edges, 300)
+
+	totalBatches := len(fileBatches) + len(chunkBatches) + len(edgeBatches)
+	if totalBatches == 0 {
+		totalBatches = 1
+	}
+
+	current := 0
+	fallback := false
+
+	runBatch := func(batch map[string]any) error {
+		return client.SyncBatch(cmd.Context(), saved.APIKey, batch)
+	}
+
+	for _, b := range fileBatches {
+		current++
+		fmt.Fprintf(cmd.ErrOrStderr(), "Uploading %d of %d...\n", current, totalBatches)
+		err := retryBatch(func() error {
+			return runBatch(map[string]any{
+				"phase":   "batch",
+				"project": payload.Project,
+				"sync_id": syncID,
+				"totals":  map[string]int{"files": len(payload.Files), "chunks": len(payload.Chunks), "edges": len(payload.Edges)},
+				"files":   b,
+			})
+		})
+		if err != nil {
+			apiErr := &api.APIError{}
+			if errors.As(err, &apiErr) && (apiErr.StatusCode == 404 || apiErr.StatusCode == 400) && current == 1 {
+				fallback = true
+				break
+			}
+			return describeSyncFailure(err, apiURL)
+		}
+	}
+	if fallback {
+		res, err := client.Sync(cmd.Context(), saved.APIKey, payload)
+		if err != nil {
+			return describeSyncFailure(err, apiURL)
+		}
+		out := cmd.OutOrStdout()
+		fmt.Fprintf(out, "Synced %s\n", meta.Name)
+		fmt.Fprintf(out, "  Files: %d\n", res.Files)
+		fmt.Fprintf(out, "  Chunks: %d\n", res.Chunks)
+		fmt.Fprintf(out, "  Edges: %d\n", res.Edges)
+		fmt.Fprintf(out, "View it at %s%s\n", apiURL, res.URL)
+		return nil
+	}
+
+	for _, b := range chunkBatches {
+		current++
+		fmt.Fprintf(cmd.ErrOrStderr(), "Uploading %d of %d...\n", current, totalBatches)
+		err := retryBatch(func() error {
+			return runBatch(map[string]any{
+				"phase":   "batch",
+				"project": payload.Project,
+				"sync_id": syncID,
+				"totals":  map[string]int{"files": len(payload.Files), "chunks": len(payload.Chunks), "edges": len(payload.Edges)},
+				"chunks":  b,
+			})
+		})
+		if err != nil {
+			return describeSyncFailure(err, apiURL)
+		}
+	}
+
+	for _, b := range edgeBatches {
+		current++
+		fmt.Fprintf(cmd.ErrOrStderr(), "Uploading %d of %d...\n", current, totalBatches)
+		err := retryBatch(func() error {
+			return runBatch(map[string]any{
+				"phase":   "batch",
+				"project": payload.Project,
+				"sync_id": syncID,
+				"totals":  map[string]int{"files": len(payload.Files), "chunks": len(payload.Chunks), "edges": len(payload.Edges)},
+				"edges":   b,
+			})
+		})
+		if err != nil {
+			return describeSyncFailure(err, apiURL)
+		}
+	}
+
+	res, err := client.SyncCommit(cmd.Context(), saved.APIKey, map[string]any{
+		"phase":                 "commit",
+		"project":               payload.Project,
+		"sync_id":               syncID,
+		"totals":                map[string]int{"files": len(payload.Files), "chunks": len(payload.Chunks), "edges": len(payload.Edges)},
+		"external_dependencies": payload.External,
+		"cli_version":           version.Version,
+	})
 	if err != nil {
 		return describeSyncFailure(err, apiURL)
 	}
@@ -191,6 +288,38 @@ func runSync(
 	fmt.Fprintf(out, "View it at %s%s\n", apiURL, res.URL)
 
 	return nil
+}
+
+func chunkSlice[T any](items []T, size int) [][]T {
+	var batches [][]T
+	for i := 0; i < len(items); i += size {
+		end := i + size
+		if end > len(items) {
+			end = len(items)
+		}
+		batches = append(batches, items[i:end])
+	}
+	return batches
+}
+
+func retryBatch(fn func() error) error {
+	var err error
+	for i := 0; i < 3; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		apiErr := &api.APIError{}
+		if errors.As(err, &apiErr) && apiErr.StatusCode >= 500 && apiErr.StatusCode < 600 {
+			continue
+		}
+		netErr := &api.NetworkError{}
+		if errors.As(err, &netErr) {
+			continue
+		}
+		return err
+	}
+	return err
 }
 
 func buildMeta(path string, name string) (project.Meta, error) {
@@ -269,6 +398,12 @@ func describeSyncFailure(err error, apiURL string) error {
 		}
 		if apiErr.StatusCode == http.StatusServiceUnavailable {
 			return errors.New(apiErr.Message)
+		}
+		if apiErr.StatusCode == http.StatusConflict {
+			return errors.New("Upload incomplete, run the sync again")
+		}
+		if apiErr.StatusCode == http.StatusRequestEntityTooLarge {
+			return errors.New("A batch was too large; update huluCode")
 		}
 		return fmt.Errorf("Sync failed (HTTP %d)", apiErr.StatusCode)
 	}

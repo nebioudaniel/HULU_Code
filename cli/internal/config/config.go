@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	DirName       = ".hulucode"
-	FileName      = "config.json"
-	EnvAPIURL     = "HULUCODE_API_URL"
+	DirName   = ".hulucode"
+	FileName  = "config.json"
+	EnvAPIURL = "HULUCODE_API_URL"
 
 	dirPerm  os.FileMode = 0o700
 	filePerm os.FileMode = 0o600
