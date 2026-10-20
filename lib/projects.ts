@@ -1,7 +1,8 @@
 import type { PoolClient } from "@neondatabase/serverless";
 
-import { pool } from "@/lib/db";
+import { pool, createPool } from "@/lib/db";
 import { getPlanLabel, getPlanLimits } from "@/lib/plans";
+import { logError } from "@/lib/errors";
 
 const MAX_CHUNKS = 50_000;
 const MAX_FILES = 20_000;
@@ -367,22 +368,39 @@ export async function syncProject(
 ): Promise<SyncOutcome> {
   const limits = getPlanLimits(tier);
   const plan = getPlanLabel(tier);
-  const client = (await pool.connect()) as unknown as PoolClient;
+  const dbPool = await createPool();
+  const client = (await dbPool.connect()) as unknown as PoolClient;
 
   try {
     await client.query("BEGIN");
 
-    const existing = await client.query(
-      "SELECT id, chunk_count FROM projects WHERE user_id = $1 AND root_hash = $2",
-      [userId, payload.project.root_hash]
-    );
-    const existingRow = existing.rows[0];
+    let existingRow: { id: string; chunk_count: number } | undefined;
+    let currentProjects = 0;
+    let currentChunks = 0;
 
-    const projectsResult = await client.query(
-      "SELECT COUNT(*)::int AS count FROM projects WHERE user_id = $1",
-      [userId]
-    );
-    const currentProjects = (projectsResult.rows[0]?.count as number) ?? 0;
+    try {
+      const existing = await client.query(
+        "SELECT id, chunk_count, (SELECT COUNT(*)::int FROM projects WHERE user_id = $1) AS project_count, (SELECT COALESCE(SUM(chunk_count), 0)::int FROM projects WHERE user_id = $1) AS total_chunks FROM projects WHERE user_id = $1 AND root_hash = $2",
+        [userId, payload.project.root_hash]
+      );
+      const row = existing.rows[0];
+      if (row) {
+        existingRow = { id: row.id as string, chunk_count: row.chunk_count as number };
+        currentProjects = row.project_count as number;
+        currentChunks = row.total_chunks as number;
+      } else {
+        const counts = await client.query(
+          "SELECT COUNT(*)::int AS project_count, COALESCE(SUM(chunk_count), 0)::int AS total_chunks FROM projects WHERE user_id = $1",
+          [userId]
+        );
+        currentProjects = (counts.rows[0]?.project_count as number) ?? 0;
+        currentChunks = (counts.rows[0]?.total_chunks as number) ?? 0;
+      }
+    } catch (error) {
+      logError("sync", error, "plan limits");
+      throw error;
+    }
+
     const nextProjects = existingRow ? currentProjects : currentProjects + 1;
 
     if (nextProjects > limits.projects) {
@@ -397,12 +415,7 @@ export async function syncProject(
       };
     }
 
-    const chunksResult = await client.query(
-      "SELECT COALESCE(SUM(chunk_count), 0)::int AS total FROM projects WHERE user_id = $1",
-      [userId]
-    );
-    const currentChunks = (chunksResult.rows[0]?.total as number) ?? 0;
-    const previousChunks = (existingRow?.chunk_count as number) ?? 0;
+    const previousChunks = existingRow?.chunk_count ?? 0;
     const nextChunks = currentChunks - previousChunks + payload.chunks.length;
 
     if (nextChunks > limits.chunks) {
@@ -417,89 +430,120 @@ export async function syncProject(
       };
     }
 
-    const upsert = await client.query(
-      `INSERT INTO projects (user_id, name, root_hash, file_count, chunk_count, edge_count, languages, external_deps, last_synced_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, now())
-       ON CONFLICT (user_id, root_hash) DO UPDATE SET
-         name = EXCLUDED.name,
-         file_count = EXCLUDED.file_count,
-         chunk_count = EXCLUDED.chunk_count,
-         edge_count = EXCLUDED.edge_count,
-         languages = EXCLUDED.languages,
-         external_deps = EXCLUDED.external_deps,
-         last_synced_at = now()
-       RETURNING id`,
-      [
-        userId,
-        payload.project.name,
-        payload.project.root_hash,
-        payload.files.length,
-        payload.chunks.length,
-        payload.edges.length,
-        JSON.stringify(countLanguages(payload.files)),
-        JSON.stringify(payload.external_dependencies),
-      ]
-    );
-    const projectId = upsert.rows[0].id as string;
+    let projectId: string;
+    try {
+      const upsert = await client.query(
+        `INSERT INTO projects (user_id, name, root_hash, file_count, chunk_count, edge_count, languages, external_deps, last_synced_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, now())
+         ON CONFLICT (user_id, root_hash) DO UPDATE SET
+           name = EXCLUDED.name,
+           file_count = EXCLUDED.file_count,
+           chunk_count = EXCLUDED.chunk_count,
+           edge_count = EXCLUDED.edge_count,
+           languages = EXCLUDED.languages,
+           external_deps = EXCLUDED.external_deps,
+           last_synced_at = now()
+         RETURNING id`,
+        [
+          userId,
+          payload.project.name,
+          payload.project.root_hash,
+          payload.files.length,
+          payload.chunks.length,
+          payload.edges.length,
+          JSON.stringify(countLanguages(payload.files)),
+          JSON.stringify(payload.external_dependencies),
+        ]
+      );
+      projectId = upsert.rows[0].id as string;
+    } catch (error) {
+      logError("sync", error, "upsert project");
+      throw error;
+    }
 
-    await client.query("DELETE FROM project_files WHERE project_id = $1", [projectId]);
-    await client.query("DELETE FROM code_chunks WHERE project_id = $1", [projectId]);
-    await client.query("DELETE FROM project_edges WHERE project_id = $1", [projectId]);
+    try {
+      await client.query("DELETE FROM project_files WHERE project_id = $1; DELETE FROM code_chunks WHERE project_id = $1; DELETE FROM project_edges WHERE project_id = $1", [projectId]);
+    } catch (error) {
+      logError("sync", error, "replace files");
+      throw error;
+    }
 
-    await insertRows(
-      client,
-      "project_files",
-      [
-        { name: "project_id", cast: "text" },
-        { name: "path", cast: "text" },
-        { name: "language", cast: "text" },
-        { name: "line_count", cast: "int" },
-        { name: "partial", cast: "boolean" },
-      ],
-      payload.files.map((file) => [projectId, file.path, file.language, file.line_count, file.partial])
-    );
-    await insertRows(
-      client,
-      "code_chunks",
-      [
-        { name: "project_id", cast: "text" },
-        { name: "chunk_key", cast: "text" },
-        { name: "file_path", cast: "text" },
-        { name: "language", cast: "text" },
-        { name: "kind", cast: "text" },
-        { name: "name", cast: "text" },
-        { name: "parent", cast: "text" },
-        { name: "start_line", cast: "int" },
-        { name: "end_line", cast: "int" },
-        { name: "content_hash", cast: "text" },
-        { name: "uses_goroutines", cast: "boolean" },
-      ],
-      payload.chunks.map((chunk) => [
-        projectId,
-        chunk.key,
-        chunk.file_path,
-        chunk.language,
-        chunk.kind,
-        chunk.name,
-        chunk.parent,
-        chunk.start_line,
-        chunk.end_line,
-        chunk.content_hash,
-        chunk.uses_goroutines,
-      ])
-    );
-    await insertRows(
-      client,
-      "project_edges",
-      [
-        { name: "project_id", cast: "text" },
-        { name: "from_path", cast: "text" },
-        { name: "to_path", cast: "text" },
-      ],
-      payload.edges.map((edge) => [projectId, edge.from, edge.to])
-    );
+    try {
+      await insertRows(
+        client,
+        "project_files",
+        [
+          { name: "project_id", cast: "text" },
+          { name: "path", cast: "text" },
+          { name: "language", cast: "text" },
+          { name: "line_count", cast: "int" },
+          { name: "partial", cast: "boolean" },
+        ],
+        payload.files.map((file) => [projectId, file.path, file.language, file.line_count, file.partial])
+      );
+    } catch (error) {
+      logError("sync", error, "replace files");
+      throw error;
+    }
 
-    await client.query("COMMIT");
+    try {
+      await insertRows(
+        client,
+        "code_chunks",
+        [
+          { name: "project_id", cast: "text" },
+          { name: "chunk_key", cast: "text" },
+          { name: "file_path", cast: "text" },
+          { name: "language", cast: "text" },
+          { name: "kind", cast: "text" },
+          { name: "name", cast: "text" },
+          { name: "parent", cast: "text" },
+          { name: "start_line", cast: "int" },
+          { name: "end_line", cast: "int" },
+          { name: "content_hash", cast: "text" },
+          { name: "uses_goroutines", cast: "boolean" },
+        ],
+        payload.chunks.map((chunk) => [
+          projectId,
+          chunk.key,
+          chunk.file_path,
+          chunk.language,
+          chunk.kind,
+          chunk.name,
+          chunk.parent,
+          chunk.start_line,
+          chunk.end_line,
+          chunk.content_hash,
+          chunk.uses_goroutines,
+        ])
+      );
+    } catch (error) {
+      logError("sync", error, "replace chunks");
+      throw error;
+    }
+
+    try {
+      await insertRows(
+        client,
+        "project_edges",
+        [
+          { name: "project_id", cast: "text" },
+          { name: "from_path", cast: "text" },
+          { name: "to_path", cast: "text" },
+        ],
+        payload.edges.map((edge) => [projectId, edge.from, edge.to])
+      );
+    } catch (error) {
+      logError("sync", error, "replace edges");
+      throw error;
+    }
+
+    try {
+      await client.query("COMMIT");
+    } catch (error) {
+      logError("sync", error, "commit");
+      throw error;
+    }
 
     return {
       ok: true,
@@ -508,15 +552,23 @@ export async function syncProject(
       chunks: payload.chunks.length,
       edges: payload.edges.length,
     };
-  } catch {
+  } catch (error) {
     try {
       await client.query("ROLLBACK");
     } catch {
       void 0;
     }
+    const code = (error as { code?: string })?.code;
+    if (code === "42P01") {
+      return { ok: false, status: 503, error: "The database is not set up for projects yet. Run migrations/003_projects.sql." };
+    }
+    logError("sync", error, "upsert project");
     return { ok: false, status: 500, error: "Could not save the project. Please try again." };
   } finally {
     client.release();
+    if (typeof dbPool.end === "function") {
+      await dbPool.end();
+    }
   }
 }
 

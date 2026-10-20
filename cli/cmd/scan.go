@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -149,6 +150,10 @@ func runSync(
 		fmt.Fprintf(out, "  Edges: %d\n", len(payload.Edges))
 		fmt.Fprintf(out, "  Payload: %s (gzipped)\n", humanSize(size))
 
+		if raw, err := json.Marshal(payload); err == nil && len(raw) > 1000000 {
+			fmt.Fprintln(out, "Large project: syncing a subfolder is faster")
+		}
+
 		return nil
 	}
 
@@ -259,7 +264,13 @@ func describeSyncFailure(err error, apiURL string) error {
 		if apiErr.StatusCode == http.StatusUnauthorized {
 			return errors.New("Your API key was rejected. Run `hulucode auth login` again.")
 		}
-		return errors.New(apiErr.Message)
+		if apiErr.StatusCode == http.StatusRequestEntityTooLarge {
+			return errors.New("This project is too large to sync in one go. Run the sync from a subfolder, for example: cd path/to/folder && hulucode scan --local --sync")
+		}
+		if apiErr.StatusCode == http.StatusServiceUnavailable {
+			return errors.New(apiErr.Message)
+		}
+		return fmt.Errorf("Sync failed (HTTP %d)", apiErr.StatusCode)
 	}
 
 	networkErr := &api.NetworkError{}

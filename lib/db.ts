@@ -28,7 +28,7 @@ function requestKey(): object | null {
   }
 }
 
-async function createPool(): Promise<Pool> {
+export async function createPool(): Promise<Pool> {
   const connectionString = process.env.DATABASE_URL;
   if (usesNeon(connectionString) || driver !== "pg") {
     return new Pool({ connectionString });
