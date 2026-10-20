@@ -10,17 +10,22 @@ import { ToolsMarquee } from "@/components/tools-marquee"
 export default function Home() {
   return (
     <>
-      <section className="relative flex min-h-[75vh] w-full items-center overflow-hidden bg-background text-foreground">
-        <HeroArchitecture className="absolute inset-0 h-full w-full opacity-90" />
-        <div className="relative z-10 w-full pl-[13.5%] pr-6">
-          <div className="max-w-3xl -translate-y-[6%]">
+      <section className="relative flex min-h-[65vh] w-full items-center overflow-hidden bg-background px-6 py-12 text-foreground">
+        <div
+          className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-[size:16px_16px] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)]"
+          style={{ maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)", WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)" }}
+        />
+        <div className="hero-bg absolute inset-0 bg-[radial-gradient(circle_at_65%_45%,rgba(59,130,246,0.14)_0%,rgba(139,92,246,0.09)_40%,transparent_70%)] blur-2xl" />
+
+        <div className="relative z-10 mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
+          <div className="max-w-3xl">
             <h1 className="text-[48px] font-bold leading-[1.05] tracking-tight text-foreground">
               Understand any codebase
               <br />
               in minutes.
             </h1>
 
-            <p className="mt-6 text-[12px] leading-[1.6] text-muted-foreground">
+            <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
               AI Codebase Navigator scans your code on your own machine, maps
               how everything connects,
               <br />
@@ -38,6 +43,10 @@ export default function Home() {
 
               <GetStartedButton />
             </div>
+          </div>
+
+          <div className="relative h-[320px] w-full overflow-hidden sm:h-[360px] lg:h-[450px]">
+            <HeroArchitecture className="absolute inset-0 h-full w-full" />
           </div>
         </div>
       </section>
