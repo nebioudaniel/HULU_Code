@@ -37,14 +37,22 @@ export function CreateKeyDialog({ disabled = false }: { disabled?: boolean }) {
     )
   }
 
+  function reset() {
+    setPhase("form")
+    setError(null)
+    setCreatedKey(null)
+    setName("")
+  }
+
   function handleOpenChange(next: boolean) {
+    if (!next && phase === "created") return
     setOpen(next)
-    if (!next) {
-      setPhase("form")
-      setError(null)
-      setCreatedKey(null)
-      setName("")
-    }
+    if (!next) reset()
+  }
+
+  function closeCreated() {
+    setOpen(false)
+    reset()
   }
 
   async function handleCreate() {
@@ -83,7 +91,14 @@ export function CreateKeyDialog({ disabled = false }: { disabled?: boolean }) {
           Create key
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent
+        onEscapeKeyDown={(event) => {
+          if (phase === "created") event.preventDefault()
+        }}
+        onPointerDownOutside={(event) => {
+          if (phase === "created") event.preventDefault()
+        }}
+      >
         {phase === "created" && createdKey ? (
           <>
             <DialogHeader>
@@ -106,7 +121,7 @@ export function CreateKeyDialog({ disabled = false }: { disabled?: boolean }) {
             </div>
 
             <DialogFooter>
-              <Button onClick={() => handleOpenChange(false)}>Done</Button>
+              <Button onClick={closeCreated}>Done</Button>
             </DialogFooter>
           </>
         ) : (
