@@ -1,49 +1,65 @@
-name: Release
+name: release
 
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - runs-on: macos-latest
-            os: darwin
+          - os: darwin
+            arch: arm64
+            runner: macos-14
+          - os: darwin
             arch: amd64
-          - runs-on: ubuntu-latest
-            os: linux
+            runner: macos-13
+          - os: linux
             arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.22
-      - run: cd cli && CGO_ENABLED=1 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X 'github.com/nebioudaniel/HULU_Code/cli/internal/config.DefaultAPIURL=http://localhost:3000'" -o hulucode_${{ matrix.os }}_${{ matrix.arch }} .
-      - run: cd cli && sha256sum hulucode_${{ matrix.os }}_${{ matrix.arch }} > hulucode_${{ matrix.os }}_${{ matrix.arch }}.sha256
+          go-version: "1.22"
+      - name: build
+        env:
+          HULUCODE_API_URL: ${{ vars.HULUCODE_API_URL }}
+        run: |
+          API_URL="${HULUCODE_API_URL:-http://localhost:3000}"
+          CGO_ENABLED=1 go build -trimpath -ldflags "-s -w -X github.com/nebioudaniel/HULU_Code/cli/internal/config.DefaultAPIURL=${API_URL}" -o "hulucode_${{ matrix.os }}_${{ matrix.arch }}" ./cli
+      - name: checksum
+        run: sha256sum "hulucode_${{ matrix.os }}_${{ matrix.arch }}" > "hulucode_${{ matrix.os }}_${{ matrix.arch }}.sha256"
       - uses: actions/upload-artifact@v4
         with:
-          name: cli-${{ matrix.os }}-${{ matrix.arch }}
-          path: cli/hulucode_${{ matrix.os }}_${{ matrix.arch }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cli-${{ matrix.os }}-${{ matrix.arch }}-checksum
-          path: cli/hulucode_${{ matrix.os }}_${{ matrix.arch }}.sha256
-  publish:
-    needs: release
-    runs-on: ubuntu-latest
+          name: "hulucode_${{ matrix.os }}_${{ matrix.arch }}"
+          path: |
+            hulucode_${{ matrix.os }}_${{ matrix.arch }}
+            hulucode_${{ matrix.os }}_${{ matrix.arch }}.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
-      - run: |
-          tag=${GITHUB_REF#refs/tags/}
-          gh release create "$tag" artifacts/*/*.sha256 artifacts/*/hulucode_* --title "$tag" --notes "CLI binaries for $tag"
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: checksums
+        run: |
+          cat artifacts/*.sha256 > checksums.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/hulucode_*
+            checksums.txt
