@@ -14,6 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { SymbolKindBadge } from "@/components/dashboard/symbol-kind-badge"
+import { HttpMethodBadge, isHttpHandlerMethod } from "@/components/dashboard/http-method-badge"
 
 export type SymbolRow = {
   kind: string
@@ -29,6 +31,31 @@ export type FileRow = {
   lineCount: number
   partial: boolean
   symbols: SymbolRow[]
+}
+
+const SYMBOL_KINDS = ["component", "function", "method", "type", "interface", "struct", "export"]
+
+export function SymbolLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span className="font-semibold">Symbol kinds:</span>
+      {SYMBOL_KINDS.map((kind) => (
+        <SymbolKindBadge key={kind} kind={kind} />
+      ))}
+    </div>
+  )
+}
+
+function symbolBadges({ filePath, symbol }: { filePath: string; symbol: SymbolRow }) {
+  const isRoute = /(^|\/)(route)\.(ts|tsx|js|jsx)$/.test(filePath)
+  const showMethod =
+    symbol.kind.toLowerCase() === "function" &&
+    isHttpHandlerMethod(symbol.name) &&
+    isRoute
+  if (showMethod) {
+    return <HttpMethodBadge method={symbol.name} />
+  }
+  return <SymbolKindBadge kind={symbol.kind} />
 }
 
 export function FilesSymbols({
@@ -50,6 +77,45 @@ export function FilesSymbols({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <SymbolLegend />
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {page} of {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              disabled={page <= 1}
+            >
+              <Link
+                href={`${basePath}?tab=files&page=${Math.max(1, page - 1)}`}
+                aria-disabled={page <= 1}
+              >
+                Previous
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              disabled={page >= totalPages}
+            >
+              <Link
+                href={`${basePath}?tab=files&page=${page + 1}`}
+                aria-disabled={page >= totalPages}
+              >
+                Next
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
         <Table>
           <TableHeader>
@@ -118,7 +184,7 @@ export function FilesSymbols({
                                 key={`${symbol.kind}-${symbol.parent}-${symbol.name}-${symbol.startLine}`}
                                 className="flex items-center gap-2 text-sm"
                               >
-                                <Badge variant="outline">{symbol.kind}</Badge>
+                                {symbolBadges({ filePath: file.path, symbol })}
                                 <span className="font-medium text-foreground">
                                   {symbol.parent
                                     ? `${symbol.parent}.${symbol.name}`
@@ -139,42 +205,6 @@ export function FilesSymbols({
             })}
           </TableBody>
         </Table>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Page {page} of {totalPages}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="rounded-lg"
-            disabled={page <= 1}
-          >
-            <Link
-              href={`${basePath}?tab=files&page=${Math.max(1, page - 1)}`}
-              aria-disabled={page <= 1}
-            >
-              Previous
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="rounded-lg"
-            disabled={page >= totalPages}
-          >
-            <Link
-              href={`${basePath}?tab=files&page=${page + 1}`}
-              aria-disabled={page >= totalPages}
-            >
-              Next
-            </Link>
-          </Button>
-        </div>
       </div>
     </div>
   )

@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { Badge } from "@/components/ui/badge"
-import { formatCount } from "@/lib/plans"
+import { formatCount, getPlanLabel } from "@/lib/plans"
 import {
   countProjectFiles,
   getProject,
@@ -24,6 +24,8 @@ import {
 } from "@/lib/projects"
 import { FilesSymbols, type FileRow } from "./files-symbols"
 import { ProjectTabs, type ProjectTabId } from "./project-tabs"
+import { DependencyMap } from "@/components/dashboard/dependency-map"
+import { ImpactAnalysis } from "@/components/dashboard/impact-analysis"
 
 const PAGE_SIZE = 100
 const TABS = ["overview", "files", "graph", "impact"] as const
@@ -120,8 +122,8 @@ function OverviewTab({ project }: { project: ProjectSummary }) {
                       />
                     </div>
                   </li>
-                )
-              })}
+                )}
+              )}
             </ul>
           )}
         </div>
@@ -253,19 +255,31 @@ export default async function ProjectDetailPage({
       {active === "files" && filesView}
 
       {active === "graph" && (
-        <EmptyState
-          icon={Network}
-          title="Dependency map"
-          description="Coming next."
-        />
+        <>
+          {project.edgeCount === 0 ? (
+            <EmptyState
+              icon={Network}
+              title="Dependency map"
+              description="No dependencies were found. Run another sync to index import relationships."
+            />
+          ) : (
+            <DependencyMap projectId={id} />
+          )}
+        </>
       )}
 
       {active === "impact" && (
-        <EmptyState
-          icon={GitCompareArrows}
-          title="Impact analysis"
-          description="Coming next."
-        />
+        <>
+          {project.edgeCount === 0 ? (
+            <EmptyState
+              icon={GitCompareArrows}
+              title="Impact analysis"
+              description="No dependencies were found. Run another sync to index import relationships."
+            />
+          ) : (
+            <ImpactAnalysis projectId={id} />
+          )}
+        </>
       )}
     </div>
   )

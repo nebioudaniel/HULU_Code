@@ -751,3 +751,30 @@ export async function listProjectChunks(
     return [];
   }
 }
+
+export type ProjectEdgeRow = {
+  fromPath: string;
+  toPath: string;
+};
+
+export async function listProjectEdges(
+  projectId: string,
+  limit: number
+): Promise<ProjectEdgeRow[]> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT from_path, to_path
+         FROM project_edges
+        WHERE project_id = $1
+        ORDER BY from_path, to_path
+        LIMIT $2`,
+      [projectId, limit]
+    );
+    return rows.map((row) => ({
+      fromPath: String(row.from_path),
+      toPath: String(row.to_path),
+    }));
+  } catch {
+    return [];
+  }
+}
