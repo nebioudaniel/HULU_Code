@@ -45,7 +45,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative h-[320px] w-full overflow-hidden sm:h-[360px] lg:h-[450px]">
+          <div className="relative hidden h-[320px] w-full overflow-hidden sm:h-[360px] lg:block lg:h-[450px]">
             <HeroArchitecture className="absolute inset-0 h-full w-full" />
           </div>
         </div>
