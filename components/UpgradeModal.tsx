@@ -22,6 +22,7 @@ const PRINT_DURATION_MS = 1800
 const AUTO_REDIRECT_MS = 2600
 const ORDER_REFERENCE = "ORD-2048"
 const PRICE = "59.9"
+const INLINE_SCRIPT_URL = "https://js.chapa.co/v1/inline.js"
 
 
 type ModalState =
@@ -62,7 +63,15 @@ export function UpgradeModal({
   const [paidAt, setPaidAt] = useState<Date | null>(null)
   const [mock, setMock] = useState(false)
   const [enableDemoUpgrade, setEnableDemoUpgrade] = useState(false)
+  const [inlineCheckoutEnabled, setInlineCheckoutEnabled] = useState(false)
+  const [chapaPublicKey, setChapaPublicKey] = useState<string | null>(null)
   const [optionsReady, setOptionsReady] = useState(false)
+  const [inlineScriptLoaded, setInlineScriptLoaded] = useState(false)
+  const [inlineLoading, setInlineLoading] = useState(false)
+  const inlineCheckoutRef = useRef<{ initialize: (id: string) => void } | null>(
+    null
+  )
+  const inlineContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -74,6 +83,19 @@ export function UpgradeModal({
       .then((data) => {
         if (!cancelled) {
           setEnableDemoUpgrade(Boolean(data?.enableDemoUpgrade))
+          const key =
+            typeof data?.chapaPublicKey === "string"
+              ? data.chapaPublicKey
+              : null
+          setChapaPublicKey(key)
+          setInlineCheckoutEnabled(
+            Boolean(
+              data?.inlineCheckoutEnabled ??
+                data?.inlineCheckoutConfigured ??
+                key ??
+                process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY
+            )
+          )
         }
       })
       .catch(() => {})
@@ -86,6 +108,20 @@ export function UpgradeModal({
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+
+    const script = document.createElement("script")
+    script.src = INLINE_SCRIPT_URL
+    script.async = true
+    script.onload = () => setInlineScriptLoaded(true)
+    document.head.appendChild(script)
+
+    return () => {
+      document.head.removeChild(script)
+      setInlineScriptLoaded(false)
+    }
+  }, [open])
 
   const providerLabel = "Chapa"
   const reset = useCallback(() => {
@@ -143,6 +179,120 @@ export function UpgradeModal({
     }
   }
 
+
+  async function payInline() {
+    if (!inlineScriptLoaded || !(window as unknown as { ChapaCheckout?: unknown }).ChapaCheckout) {
+      setError("Inline checkout is not available yet. Please try again.")
+      return
+    }
+
+    const publicKey =
+      chapaPublicKey || process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY
+
+    if (!publicKey) {
+      setError("Inline checkout is not configured. Please contact support.")
+      return
+    }
+
+    setError(null)
+    setInlineLoading(true)
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.trim() || window.location.origin
+
+    try {
+      const ChapaCheckout = (window as unknown as {
+        ChapaCheckout: new (config: Record<string, unknown>) => {
+          initialize: (id: string) => void
+        }
+      }).ChapaCheckout
+
+      const chapa = new ChapaCheckout({
+        publicKey,
+        amount: PRICE,
+        currency: "ETB",
+        availablePaymentMethods: [
+          "telebirr",
+          "cbebirr",
+          "ebirr",
+          "mpesa",
+          "chapa",
+        ],
+        customizations: {
+          buttonText: "Pay Now",
+          styles: "",
+        },
+        callbackUrl: `${appUrl}/api/payments/webhook`,
+        returnUrl: `${appUrl}/api/payments/verify`,
+        onSuccessfulPayment: (data: Record<string, unknown>) => {
+          const raw = data as {
+            tx_ref?: string
+            reference?: string
+            id?: string
+            data?: { tx_ref?: string; reference?: string; id?: string }
+          } | undefined
+          const txRef =
+            raw?.tx_ref ??
+            raw?.reference ??
+            raw?.id ??
+            raw?.data?.tx_ref ??
+            raw?.data?.reference ??
+            raw?.data?.id
+          if (txRef) {
+            setInlineLoading(false)
+            verifyInlinePayment(txRef)
+          } else {
+            setInlineLoading(false)
+            setError("Payment completed but reference is missing.")
+            setState("form")
+          }
+        },
+        onPaymentFailure: (error: Record<string, unknown>) => {
+          setInlineLoading(false)
+          setError(
+            typeof error?.message === "string"
+              ? error.message
+              : "Payment failed."
+          )
+          setState("form")
+        },
+        onClose: () => {
+          setInlineLoading(false)
+          setState("form")
+        },
+      })
+
+      inlineCheckoutRef.current = chapa
+      chapa.initialize("inline-payment-container")
+    } catch (err) {
+      setInlineLoading(false)
+      setError(err instanceof Error ? err.message : "Inline checkout failed")
+      setState("form")
+    }
+  }
+
+  async function verifyInlinePayment(txRef: string) {
+    try {
+      const res = await fetch(`/api/payments/inline-verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ tx_ref: txRef }),
+      })
+      const data = await res.json()
+
+      if (res.ok && data?.status === "success") {
+        setPaidAt(new Date())
+        setState("complete")
+      } else {
+        setError(data?.error ?? "Payment verification failed.")
+        setState("form")
+      }
+    } catch {
+      setError("Payment verification failed. Please contact support.")
+      setState("form")
+    }
+  }
 
   const startHosted = useCallback(() => {
     if (needsEmail && !isValidEmail(email)) {
@@ -325,6 +475,26 @@ export function UpgradeModal({
                 >
                   Pay with Chapa
                 </Button>
+                {inlineScriptLoaded && inlineCheckoutEnabled && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Or pay directly with Chapa inline checkout:
+                    </p>
+                    <Button
+                      type="button"
+                      className="w-full rounded-lg"
+                      onClick={payInline}
+                      disabled={inlineLoading}
+                    >
+                      {inlineLoading ? "Preparing…" : "Pay Inline"}
+                    </Button>
+                    <div
+                      ref={inlineContainerRef}
+                      id="inline-payment-container"
+                      className="mt-2 rounded-lg border border-border"
+                    />
+                  </div>
+                )}
               </div>
             )}
 

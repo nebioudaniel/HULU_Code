@@ -41,6 +41,23 @@ export function getKeyKind(): KeyKind | undefined {
   return detectKeyKind(key);
 }
 
+export function getChapaPublicKey(): string | undefined {
+  const raw =
+    process.env.NEXT_PUBLIC_CHAPA_PUBLIC_KEY?.trim() ||
+    process.env.CHAPA_PUBLIC_KEY?.trim() ||
+    process.env.CHAPA_PUBLISHABLE_KEY?.trim();
+  if (!raw) return undefined;
+  return raw.replace(/^["']|["']$/g, "").trim();
+}
+
+export function isInlineCheckoutConfigured(): boolean {
+  return Boolean(getChapaPublicKey());
+}
+
+export function isInlineCheckoutEnabled(): boolean {
+  return isInlineCheckoutConfigured();
+}
+
 
 export async function verifyAndFulfill(
   txRef: string,
