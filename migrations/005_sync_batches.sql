@@ -1,0 +1,3 @@
+ALTER TABLE project_files ADD COLUMN IF NOT EXISTS sync_id UUID;
+ALTER TABLE code_chunks ADD COLUMN IF NOT EXISTS sync_id UUID;
+ALTER TABLE project_edges ADD COLUMN IF NOT EXISTS sync_id UUID;
