@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 const links = [
   { label: "Pricing", href: "#pricing", sectionId: "pricing" },
   { label: "Docs", href: "/docs" },
+  { label: "Read more", href: "/read-more" },
 ]
 
 export function NavLinks() {

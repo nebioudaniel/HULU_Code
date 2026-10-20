@@ -58,13 +58,16 @@ export default function CliPage() {
         </p>
 
         <Section title="Install">
-          <p>One-line installer:</p>
-          <Code>{`curl -fsSL https://raw.githubusercontent.com/nebioudaniel/HULU_Code/main/install.sh | sh`}</Code>
-          <p>Build from source (requires Go 1.22+, plus Xcode Command Line Tools on macOS or gcc on Linux):</p>
+          <p>Build from source (requires Go 1.22+, plus Xcode Command Line Tools on macOS or gcc and Go 1.22+ on Linux):</p>
           <Code>{`git clone https://github.com/nebioudaniel/HULU_Code.git
 cd HULU_Code/cli
 make build
-cp hulucode /usr/local/bin/hulucode`}</Code>
+cp hulucode ~/.local/bin/hulucode`}</Code>
+          <p>
+            Make sure {`~/.local/bin`} is on your {`PATH`}, then open a new
+            terminal:
+          </p>
+          <Code>{`export PATH="$PATH:$HOME/.local/bin"`}</Code>
         </Section>
 
         <Section title="Log in">
@@ -165,6 +168,65 @@ hulucode scan --local --sync --yes`}</Code>
             sent and what is not, and asks for your consent. With {`--yes`} you
             approve for that run only. Without it, a non-interactive shell
             refuses to sync until you approve.
+          </p>
+        </Section>
+
+        <Section title="Flags">
+          <table className="mt-2 w-full text-sm text-muted-foreground">
+            <thead>
+              <tr className="text-left border-b border-border">
+                <th className="pb-2 font-medium text-foreground w-1/3">Flag</th>
+                <th className="pb-2">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--local`}</td>
+                <td className="py-2">Scan a directory on the local machine (required).</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--json`}</td>
+                <td className="py-2">Print the report as JSON instead of a table.</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--include-code`}</td>
+                <td className="py-2">Include chunk source code in JSON output (requires {`--json`}).</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--verbose`}</td>
+                <td className="py-2">List every file that was parsed.</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--symbols`}</td>
+                <td className="py-2">List symbols found in every file.</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--lang`}</td>
+                <td className="py-2">Only parse these languages, for example {`go,ts,py`}.</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--sync`}</td>
+                <td className="py-2">Upload the project structure to your dashboard.</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--name`}</td>
+                <td className="py-2">Project name to save (defaults to the folder name).</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--yes`}</td>
+                <td className="py-2">Skip the sync confirmation prompt.</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-mono text-xs">{`--dry-run`}</td>
+                <td className="py-2">Show what would be sent without sending it.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Auth commands: {`hulucode auth login --key <KEY>`},{" "}
+            {`hulucode auth login --api-url <URL>`} (prompts for the key with
+            hidden input), {`hulucode auth status`}, and{" "}
+            {`hulucode auth logout`}.
           </p>
         </Section>
 

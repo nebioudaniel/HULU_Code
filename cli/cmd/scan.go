@@ -154,7 +154,7 @@ func runSync(
 			fmt.Fprintln(out, "Large project: syncing a subfolder is faster")
 		}
 
-		fmt.Fprintf(out, "  Batches: %d files, %d chunks, %d edges\\n", (len(payload.Files)+199)/200, (len(payload.Chunks)+119)/120, (len(payload.Edges)+299)/300)
+		fmt.Fprintf(out, "  Batches: %d files, %d chunks, %d edges\n", (len(payload.Files)+199)/200, (len(payload.Chunks)+119)/120, (len(payload.Edges)+299)/300)
 
 		return nil
 	}

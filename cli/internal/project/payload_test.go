@@ -85,8 +85,11 @@ func TestBuildCopiesStructure(t *testing.T) {
 	if len(payload.External) != 2 {
 		t.Fatalf("external = %+v", payload.External)
 	}
-	if payload.External[0].Name != "database/sql" || payload.External[0].Count != 3 {
+	if payload.External[0].Name != "database" || payload.External[0].Count != 3 {
 		t.Errorf("external[0] = %+v", payload.External[0])
+	}
+	if payload.External[1].Name != "react" || payload.External[1].Count != 1 {
+		t.Errorf("external[1] = %+v", payload.External[1])
 	}
 	if payload.CLIVersion != "0.1.0" {
 		t.Errorf("cli version = %q", payload.CLIVersion)

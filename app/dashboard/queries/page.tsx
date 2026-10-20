@@ -31,8 +31,8 @@ export default function QueriesPage() {
       {queries.length === 0 ? (
         <EmptyState
           icon={MessagesSquare}
-          title="No questions yet"
-          description="Ask your first question from the CLI and it will show up here."
+          title="AI questions are not available yet"
+          description="This page will list the questions you have asked about your codebases once AI question support is enabled."
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">

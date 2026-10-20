@@ -7,6 +7,7 @@ import { checkPaymentStatus } from "../../actions/check-payment-status"
 import { UpgradeToProButton } from "../upgrade-to-pro-button"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
+import { PageHelper } from "@/components/dashboard/page-helper"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -92,6 +93,9 @@ export default async function BillingPage() {
       <PageHeader
         title="Billing"
         description="Your plan and payment history."
+      />
+      <PageHelper
+        text="Shows your current plan, payment history, and lets you upgrade to Pro."
       />
 
       <Card>

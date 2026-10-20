@@ -4,6 +4,7 @@ import { GitBranch } from "lucide-react"
 import { auth } from "@/auth"
 import { SignOutButton } from "@/components/sign-out-button"
 import { PageHeader } from "@/components/dashboard/page-header"
+import { PageHelper } from "@/components/dashboard/page-helper"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,9 @@ export default async function SettingsPage() {
       <PageHeader
         title="Settings"
         description="Manage your account details."
+      />
+      <PageHelper
+        text="Manage your profile, connected GitHub account, and sign out."
       />
 
       <Card>

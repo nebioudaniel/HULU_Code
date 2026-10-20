@@ -120,15 +120,34 @@ func Build(result *analyze.Result, meta Meta, version string) Payload {
 		payload.Edges = append(payload.Edges, Edge{From: edge.From, To: edge.To})
 	}
 
+	grouped := map[string]int{}
+	order := []string{}
 	for _, name := range result.External {
-		count := result.ExternalCounts[name]
-		if count < 1 {
-			count = 1
+		pkg := packageOf(name)
+		if grouped[pkg] == 0 {
+			order = append(order, pkg)
 		}
-		payload.External = append(payload.External, External{Name: name, Count: count})
+		grouped[pkg] += result.ExternalCounts[name]
+		if grouped[pkg] < 1 {
+			grouped[pkg] = 1
+		}
+	}
+	for _, pkg := range order {
+		payload.External = append(payload.External, External{Name: pkg, Count: grouped[pkg]})
 	}
 
 	return payload
+}
+
+func packageOf(spec string) string {
+	parts := strings.SplitN(spec, "/", 3)
+	if len(parts) == 0 {
+		return spec
+	}
+	if strings.HasPrefix(parts[0], "@") && len(parts) >= 2 {
+		return parts[0] + "/" + parts[1]
+	}
+	return parts[0]
 }
 
 func gitOrigin(dir string) string {

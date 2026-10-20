@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Faq } from "@/components/faq"
 import { Features } from "@/components/features"
@@ -34,12 +35,12 @@ export default function Home() {
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button
-                variant="secondary"
-                className="h-11 rounded-full px-5 text-[12px] font-semibold uppercase tracking-wide"
+              <Link
+                href="/read-more"
+                className="rounded-full border border-input bg-background px-5 py-3 text-[12px] font-semibold uppercase tracking-wide hover:bg-muted"
               >
                 Read More
-              </Button>
+              </Link>
 
               <GetStartedButton />
             </div>

@@ -11,6 +11,7 @@ import {
 import { auth } from "@/auth"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
+import { PageHelper } from "@/components/dashboard/page-helper"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { Badge } from "@/components/ui/badge"
 import { formatCount, getPlanLabel } from "@/lib/plans"
@@ -246,6 +247,9 @@ export default async function ProjectDetailPage({
         )} chunks · ${formatCount(project.edgeCount)} edges · synced ${formatRelative(
           project.lastSyncedAt
         )}`}
+      />
+      <PageHelper
+        text="Explore your synced project: view files and symbols, the dependency map, and impact analysis for any file."
       />
 
       <ProjectTabs basePath={basePath} active={active} />

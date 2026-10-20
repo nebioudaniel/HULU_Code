@@ -5,6 +5,7 @@ import { FolderGit2 } from "lucide-react"
 import { auth } from "@/auth"
 import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
+import { PageHelper } from "@/components/dashboard/page-helper"
 import { listProjects } from "@/lib/projects"
 import { ProjectsTable, type ProjectRow } from "./projects-table"
 
@@ -69,6 +70,9 @@ export default async function ProjectsPage() {
       <PageHeader
         title="Projects"
         description="Codebases you have indexed with the CLI."
+      />
+      <PageHelper
+        text="Lists the projects you have synced with the CLI. Click a project to open its detail page, where you can explore the dependency map and impact analysis."
       />
 
       {rows.length === 0 ? (

@@ -55,6 +55,7 @@ export default async function OverviewPage() {
     userId ? projectTotals(userId) : Promise.resolve({ projects: 0, chunks: 0 }),
     userId ? listProjects(userId) : Promise.resolve([]),
   ])
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
   const hasApiKey = apiKeyCount > 0
   const hasProject = totals.projects > 0
@@ -98,8 +99,11 @@ export default async function OverviewPage() {
     {
       title: "Install the CLI and log in",
       description:
-        "Install the CLI with the one-line installer, or build from source, then log in.",
-      code: "curl -fsSL https://raw.githubusercontent.com/nebioudaniel/HULU_Code/main/install.sh | sh",
+        "Install the CLI from source, then authenticate with your key.",
+      code: `git clone https://github.com/nebioudaniel/HULU_Code.git
+cd HULU_Code/cli && make build
+cp hulucode ~/.local/bin/hulucode
+hulucode auth login --api-url ${siteUrl}`,
       done: hasProject,
     },
     {
@@ -295,6 +299,10 @@ export default async function OverviewPage() {
                   </li>
                 ))}
               </ol>
+              <p className="mt-4 text-xs text-muted-foreground">
+                macOS needs Xcode Command Line Tools ({`xcode-select --install`});
+                Linux needs gcc and Go 1.22+.
+              </p>
             </CardContent>
           </Card>
 

@@ -49,7 +49,7 @@ type tsconfig struct {
 
 func buildEdges(root string, files []parser.File) ([]Edge, []string, map[string]int) {
 	index := newFileIndex(files)
-	modulePath := readModulePath(root)
+	modulePaths := readModulePaths(root, files)
 	aliases := readAliases(root)
 
 	edges := []Edge{}
@@ -60,7 +60,7 @@ func buildEdges(root string, files []parser.File) ([]Edge, []string, map[string]
 
 	for _, file := range files {
 		for _, spec := range file.Imports {
-			targets, isExternal := resolveImport(file, spec, index, modulePath, aliases)
+			targets, isExternal := resolveImport(file, spec, index, modulePaths, aliases)
 			if isExternal {
 				if isStandardLibrary(file.Language, spec) {
 					continue
@@ -95,10 +95,10 @@ func buildEdges(root string, files []parser.File) ([]Edge, []string, map[string]
 	return edges, external, externalCounts
 }
 
-func resolveImport(file parser.File, spec string, index *fileIndex, modulePath string, aliases *aliasResolver) ([]string, bool) {
+func resolveImport(file parser.File, spec string, index *fileIndex, modulePaths map[string]string, aliases *aliasResolver) ([]string, bool) {
 	switch file.Language {
 	case "Go":
-		return resolveGo(spec, index, modulePath)
+		return resolveGo(spec, index, modulePaths)
 	case "TypeScript", "JavaScript":
 		return resolveScript(file.Path, spec, index, aliases)
 	case "Python":
@@ -108,17 +108,14 @@ func resolveImport(file parser.File, spec string, index *fileIndex, modulePath s
 	return nil, true
 }
 
-func resolveGo(spec string, index *fileIndex, modulePath string) ([]string, bool) {
-	if modulePath == "" {
-		return nil, true
+func resolveGo(spec string, index *fileIndex, modulePaths map[string]string) ([]string, bool) {
+	for mod, dir := range modulePaths {
+		if spec == mod || strings.HasPrefix(spec, mod+"/") {
+			sub := normalizeDir(strings.TrimPrefix(strings.TrimPrefix(spec, mod), "/"))
+			return index.filesInDir(normalizeDir(filepath.Join(dir, sub)), "Go"), false
+		}
 	}
-	if spec != modulePath && !strings.HasPrefix(spec, modulePath+"/") {
-		return nil, true
-	}
-
-	dir := strings.TrimPrefix(strings.TrimPrefix(spec, modulePath), "/")
-
-	return index.filesInDir(dir, "Go"), false
+	return nil, true
 }
 
 func resolveScript(filePath string, spec string, index *fileIndex, aliases *aliasResolver) ([]string, bool) {
@@ -367,4 +364,52 @@ func (m pathMapping) match(spec string) (string, bool) {
 	}
 
 	return spec[len(m.prefix) : len(spec)-len(m.suffix)], true
+}
+
+func readModulePaths(root string, files []parser.File) map[string]string {
+	modulePaths := map[string]string{}
+	read := map[string]bool{}
+	for _, file := range files {
+		if file.Language != "Go" {
+			continue
+		}
+		dir := normalizeDir(filepath.Dir(file.Path))
+		for d := dir; ; d = parentDir(d) {
+			if read[d] {
+				break
+			}
+			read[d] = true
+			mod := readModulePathAt(root, d)
+			if mod != "" {
+				modulePaths[mod] = d
+				break
+			}
+			if d == "" {
+				break
+			}
+		}
+	}
+	return modulePaths
+}
+
+func readModulePathAt(root, dir string) string {
+	data, err := os.ReadFile(filepath.Join(root, dir, "go.mod"))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.Trim(strings.TrimSpace(strings.TrimPrefix(line, "module ")), "\"")
+		}
+	}
+	return ""
+}
+
+func parentDir(dir string) string {
+	dir = normalizeDir(dir)
+	if dir == "" {
+		return ""
+	}
+	return normalizeDir(filepath.Dir(dir))
 }

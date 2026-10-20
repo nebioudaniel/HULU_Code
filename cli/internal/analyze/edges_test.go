@@ -180,3 +180,39 @@ func TestRunNeverParsesSecretFiles(t *testing.T) {
 		t.Errorf("skipped secrets = %d, want 2", result.Report.Skipped["secret"])
 	}
 }
+
+func TestSubfolderGoModuleIsInternal(t *testing.T) {
+	t.Helper()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/demo\n\ngo 1.22\n")
+	writeFile(t, filepath.Join(root, "cli", "go.mod"), "module example.com/demo/cli\n\ngo 1.22\n")
+	writeFile(t, filepath.Join(root, "cli", "internal", "parser", "parser.go"), "package parser\n\nfunc Parse() {}\n")
+	writeFile(t, filepath.Join(root, "cli", "main.go"), `package main
+
+import (
+	"fmt"
+
+	"example.com/demo/cli/internal/parser"
+)
+
+func main() { fmt.Println(parser.Parse()) }
+`)
+
+	result, err := Run(root, Options{})
+	if err != nil {
+		t.Fatalf("Run returned an error: %v", err)
+	}
+
+	got := []string{}
+	for _, edge := range result.Edges {
+		got = append(got, edge.From+" -> "+edge.To)
+	}
+	sort.Strings(got)
+
+	want := []string{"cli/main.go -> cli/internal/parser/parser.go"}
+	sort.Strings(want)
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("edges =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+}

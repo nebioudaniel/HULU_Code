@@ -2,6 +2,7 @@ import { connection } from "next/server"
 
 import { auth } from "@/auth"
 import { PageHeader } from "@/components/dashboard/page-header"
+import { PageHelper } from "@/components/dashboard/page-helper"
 import { countActiveApiKeys } from "@/lib/api-keys"
 import { projectTotals } from "@/lib/projects"
 import {
@@ -63,6 +64,9 @@ export default async function UsagePage() {
         description={`Your ${getPlanLabel(
           session?.user?.plan_tier
         )} plan limits and current usage.`}
+      />
+      <PageHelper
+        text="Shows your current plan usage for projects, code chunks, AI questions, and API keys compared to your plan limits."
       />
 
       <Card>
