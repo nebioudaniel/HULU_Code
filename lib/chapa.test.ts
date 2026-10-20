@@ -93,7 +93,7 @@ test("getKeyKind returns undefined when no key", () => {
 
 test("buildV2InitializeBody builds correct body", () => {
   const body = buildV2InitializeBody({
-    amount: 59.9,
+    amount: 49.9,
     currency: "ETB",
     merchantReference: "tx_abc123",
     firstName: "Ada",
@@ -103,7 +103,7 @@ test("buildV2InitializeBody builds correct body", () => {
     userId: "user_1",
   });
 
-  assert.equal(body.amount, 59.9);
+  assert.equal(body.amount, 49.9);
   assert.equal(body.currency, "ETB");
   assert.equal(body.merchant_reference, "tx_abc123");
 
@@ -128,7 +128,7 @@ test("buildV2InitializeBody builds correct body", () => {
 
 test("buildV2InitializeBody omits phone_number when invalid", () => {
   const body = buildV2InitializeBody({
-    amount: 59.9,
+    amount: 49.9,
     currency: "ETB",
     merchantReference: "tx_abc123",
     firstName: "Ada",
@@ -144,7 +144,7 @@ test("buildV2InitializeBody omits phone_number when invalid", () => {
 
 test("buildV2InitializeBody omits phone_number when not +251", () => {
   const body = buildV2InitializeBody({
-    amount: 59.9,
+    amount: 49.9,
     currency: "ETB",
     merchantReference: "tx_abc123",
     firstName: "Ada",

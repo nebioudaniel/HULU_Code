@@ -1,6 +1,6 @@
 export type PlanTier = "free" | "pro";
 
-export const PRO_PRICE = 59.9;
+export const PRO_PRICE = 49.9;
 
 export type PlanLimits = {
   label: string;

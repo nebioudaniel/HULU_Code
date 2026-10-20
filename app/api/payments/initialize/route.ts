@@ -138,7 +138,7 @@ export async function POST(req: Request) {
   const phoneNumber = /^0[97]\d{8}$/.test(rawPhone) ? rawPhone : undefined;
 
   const txRef = `tx_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const amount = 59.9;
+  const amount = 49.9;
   const currency = "ETB";
   const channel = isV2 ? "hosted_v2" : "hosted";
 

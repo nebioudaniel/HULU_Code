@@ -5,7 +5,7 @@ import { logError } from "@/lib/errors";
 import { ensurePaymentsSchema } from "@/lib/payments";
 
 const CHAPA_V1_BASE_URL = "https://api.chapa.co/v1";
-const PRO_PRICE = 59.9;
+const PRO_PRICE = 49.9;
 const PRO_CURRENCY = "ETB";
 
 export async function POST(req: Request) {

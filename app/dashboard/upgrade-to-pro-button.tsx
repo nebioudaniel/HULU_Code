@@ -11,7 +11,7 @@ export function UpgradeToProButton() {
   return (
     <>
       <Button className="mt-4" onClick={() => setOpen(true)}>
-        Upgrade to Pro (59.9 ETB)
+        Upgrade to Pro (49.9 ETB)
       </Button>
 
       <UpgradeModal open={open} onOpenChange={setOpen} />

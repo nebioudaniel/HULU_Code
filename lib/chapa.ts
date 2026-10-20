@@ -4,7 +4,7 @@ import { ensurePaymentsSchema } from "./payments.ts";
 
 const CHAPA_V1_BASE_URL = "https://api.chapa.co/v1";
 const CHAPA_V2_BASE_URL = "https://api.chapa.global/v2";
-const PRO_PRICE = 59.9;
+const PRO_PRICE = 49.9;
 const PRO_CURRENCY = "ETB";
 
 export type PaymentState = "success" | "failed" | "pending" | "unknown";

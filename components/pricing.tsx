@@ -33,7 +33,7 @@ const plans: Plan[] = [
   {
     id: "pro",
     name: "Pro",
-    price: "59.9",
+    price: "49.9",
     period: "ETB / month",
     tagline: "For developers working on real codebases.",
     features: [

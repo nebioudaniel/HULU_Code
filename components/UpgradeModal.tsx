@@ -21,7 +21,7 @@ const POLL_INTERVAL_MS = 3000
 const PRINT_DURATION_MS = 1800
 const AUTO_REDIRECT_MS = 2600
 const ORDER_REFERENCE = "ORD-2048"
-const PRICE = "59.9"
+const PRICE = "49.9"
 const INLINE_SCRIPT_URL = "https://js.chapa.co/v1/inline.js"
 
 
@@ -448,7 +448,7 @@ export function UpgradeModal({
             {state === "form" && optionsReady && (
               <div className="flex flex-col gap-4 p-4">
                 <p className="text-xs text-muted-foreground">
-                  You&apos;ll be redirected to a secure Chapa checkout to pay.
+                  Pay securely with Chapa inline checkout.
                 </p>
                 {enableDemoUpgrade && (
                   <>
@@ -464,22 +464,9 @@ export function UpgradeModal({
                     </Button>
                   </>
                 )}
-                {needsEmail && (
-                  <CheckoutEmail value={email} onChange={setEmail} />
-                )}
                 {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button
-                  type="button"
-                  className="w-full rounded-lg"
-                  onClick={startHosted}
-                >
-                  Pay with Chapa
-                </Button>
-                {inlineScriptLoaded && inlineCheckoutEnabled && (
+                {inlineScriptLoaded && inlineCheckoutEnabled ? (
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      Or pay directly with Chapa inline checkout:
-                    </p>
                     <Button
                       type="button"
                       className="w-full rounded-lg"
@@ -494,6 +481,10 @@ export function UpgradeModal({
                       className="mt-2 rounded-lg border border-border"
                     />
                   </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Loading payment form…
+                  </p>
                 )}
               </div>
             )}
