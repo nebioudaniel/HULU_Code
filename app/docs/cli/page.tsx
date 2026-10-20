@@ -58,19 +58,13 @@ export default function CliPage() {
         </p>
 
         <Section title="Install">
-          <p>The CLI needs Go 1.22 or newer.</p>
-          <Code>{`cd cli
+          <p>One-line installer:</p>
+          <Code>{`curl -fsSL https://raw.githubusercontent.com/nebioudaniel/HULU_Code/main/install.sh | sh`}</Code>
+          <p>Build from source (requires Go 1.22+, plus Xcode Command Line Tools on macOS or gcc on Linux):</p>
+          <Code>{`git clone https://github.com/nebioudaniel/HULU_Code.git
+cd HULU_Code/cli
 make build
-make install`}</Code>
-          <p>
-            {`make install`} puts a binary named {`hulucode`} in{" "}
-            {`$(go env GOPATH)/bin`}. If that folder is not on your{" "}
-            {`PATH`} yet, add it:
-          </p>
-          <Code>{`export PATH="$PATH:$(go env GOPATH)/bin"`}</Code>
-          <p>
-            {`make build`} alone writes {`hulucode`} into the {`cli/`} folder.
-          </p>
+cp hulucode /usr/local/bin/hulucode`}</Code>
         </Section>
 
         <Section title="Log in">
@@ -78,7 +72,7 @@ make install`}</Code>
             Create an API key on the API keys page, then hand it to the CLI.
             Keys start with {`hulu_sk_`}.
           </p>
-          <Code>{`hulucode auth login --key hulu_sk_your_key`}</Code>
+          <Code>{`hulucode auth login --api-url ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}`}</Code>
           <p>
             The key is validated against the server before it is saved to{" "}
             {`~/.hulucode/config.json`}. The file is written with permissions{" "}
@@ -86,10 +80,10 @@ make install`}</Code>
             printed again.
           </p>
           <p>
-            Leave off {`--key`} and the CLI prompts for it, reading your input
-            without echoing it to the terminal:
+            The CLI prompts for the key with hidden input. To pass the key
+            directly instead:
           </p>
-          <Code>{`hulucode auth login`}</Code>
+          <Code>{`hulucode auth login --key hulu_sk_your_key`}</Code>
           <p>
             If the server cannot be reached you get a{" "}
             {`Could not reach <api_url>`} message, and a rejected key prints the

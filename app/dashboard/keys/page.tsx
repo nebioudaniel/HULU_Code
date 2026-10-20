@@ -28,7 +28,6 @@ import {
 import { listApiKeys } from "@/lib/api-keys"
 import { getPlanLimits } from "@/lib/plans"
 
-const loginCommand = "hulucode auth login --key <YOUR_KEY>"
 
 function formatDate(value: string | null): string {
   if (!value) return "—"
@@ -52,6 +51,9 @@ export default async function ApiKeysPage() {
 
   const activeCount = keys.filter((key) => key.status === "Active").length
   const atLimit = activeCount >= limits.apiKeys
+  const siteUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000"
+  const loginCommand = `hulucode auth login --api-url ${siteUrl}`
 
   return (
     <div className="space-y-8">

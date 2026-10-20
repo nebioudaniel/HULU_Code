@@ -609,33 +609,6 @@ export function UpgradeModal({
   )
 }
 
-function CheckoutEmail({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor="checkout-email"
-        className="text-xs font-medium text-muted-foreground"
-      >
-        Email address
-      </label>
-      <input
-        id="checkout-email"
-        type="email"
-        autoComplete="email"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="you@example.com"
-        className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      />
-    </div>
-  )
-}
 
 type ReceiptProps = {
   providerLabel: string

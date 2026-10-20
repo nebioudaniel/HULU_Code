@@ -97,8 +97,9 @@ export default async function OverviewPage() {
     },
     {
       title: "Install the CLI and log in",
-      description: "Install hulucode and authenticate with your key.",
-      code: "npm install -g hulucode",
+      description:
+        "Install the CLI with the one-line installer, or build from source, then log in.",
+      code: "curl -fsSL https://raw.githubusercontent.com/nebioudaniel/HULU_Code/main/install.sh | sh",
       done: hasProject,
     },
     {

@@ -4,26 +4,20 @@
 
 ## Install
 
-Requires Go 1.22 or newer.
+One-line installer:
 
 ```sh
-cd cli
+curl -fsSL https://raw.githubusercontent.com/nebioudaniel/HULU_Code/main/install.sh | sh
+```
+
+Build from source (requires Go 1.22+, plus Xcode Command Line Tools on macOS or gcc on Linux):
+
+```sh
+git clone https://github.com/nebioudaniel/HULU_Code.git
+cd HULU_Code/cli
 make build
+cp hulucode /usr/local/bin/hulucode
 ```
-
-That writes a `hulucode` binary next to the source. To put it on your `PATH`:
-
-```sh
-make install
-```
-
-`make install` builds into `$(go env GOPATH)/bin`. If that folder is not on your `PATH` yet:
-
-```sh
-export PATH="$PATH:$(go env GOPATH)/bin"
-```
-
-`make install` is used instead of `go install .` because the module path ends in `/cli`, so a plain `go install` would name the binary `cli`. The Makefile builds it explicitly as `hulucode`.
 
 ## Prebuilt binaries
 
@@ -65,7 +59,7 @@ The full API key is never printed. Commands show the first 12 characters followe
 ### Log in
 
 ```sh
-hulucode auth login --key hulu_sk_...
+hulucode auth login --api-url <site URL>
 ```
 
 Validates the key against `POST /api/v1/auth/validate` (10 second timeout), then saves it.
