@@ -664,6 +664,92 @@ export async function getProject(
   }
 }
 
+export type ProjectPageData = {
+  project: ProjectSummary;
+  files: ProjectFileRow[];
+  edges: ProjectEdgeRow[];
+  filesTruncated: boolean;
+  edgesTruncated: boolean;
+};
+
+const PAGE_FILE_LIMIT = 3000;
+const FETCH_LIMIT = PAGE_FILE_LIMIT + 1;
+
+export async function loadProjectPage(
+  userId: string,
+  projectId: string
+): Promise<ProjectPageData | null> {
+  // Query 1: project summary.
+  const { rows: projRows } = await pool.query(
+    `SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = $1 AND user_id = $2`,
+    [projectId, userId]
+  );
+  if (!projRows[0]) return null;
+  const project = toSummary(projRows[0]);
+
+  // Query 2: files (with chunk counts) and edges, limited to keep the page load cheap.
+  const { rows } = await pool.query(
+    `SELECT
+       (SELECT COALESCE(jsonb_agg(fb ORDER BY fb.path), '[]'::jsonb)
+        FROM (
+          SELECT f.path, f.language, f.line_count, f.partial,
+                 COALESCE(c.cnt, 0) AS chunk_count
+          FROM project_files f
+          LEFT JOIN (
+            SELECT file_path, count(*)::int AS cnt
+            FROM code_chunks WHERE project_id = $1 GROUP BY file_path
+          ) c ON c.file_path = f.path
+          WHERE f.project_id = $1
+          ORDER BY f.path
+          LIMIT $2
+        ) fb) AS files,
+       (SELECT COALESCE(jsonb_agg(eb ORDER BY eb.from_path, eb.to_path), '[]'::jsonb)
+        FROM (
+          SELECT e.from_path, e.to_path
+          FROM project_edges e
+          WHERE e.project_id = $1
+          ORDER BY e.from_path, e.to_path
+          LIMIT $3
+        ) eb) AS edges
+    `,
+    [projectId, FETCH_LIMIT, FETCH_LIMIT]
+  );
+  const row = rows[0];
+  const filesRaw = row.files as unknown[];
+  const edgesRaw = row.edges as unknown[];
+
+  const filesRawAll: ProjectFileRow[] = (filesRaw ?? []).map((r) => {
+    const o = r as Record<string, unknown>;
+    return {
+      path: String(o.path ?? ""),
+      language: String(o.language ?? ""),
+      lineCount: Number(o.line_count ?? 0),
+      partial: Boolean(o.partial),
+      chunkCount: Number(o.chunk_count ?? 0),
+    };
+  });
+  const edgesRawAll: ProjectEdgeRow[] = (edgesRaw ?? []).map((r) => {
+    const o = r as Record<string, unknown>;
+    return {
+      fromPath: String(o.from_path ?? ""),
+      toPath: String(o.to_path ?? ""),
+    };
+  });
+
+  const filesTruncated = filesRawAll.length > PAGE_FILE_LIMIT;
+  const edgesTruncated = edgesRawAll.length > PAGE_FILE_LIMIT;
+  const files = filesRawAll.slice(0, PAGE_FILE_LIMIT);
+  const edges = edgesRawAll.slice(0, PAGE_FILE_LIMIT);
+
+  return {
+    project,
+    files,
+    edges,
+    filesTruncated,
+    edgesTruncated,
+  };
+}
+
 export async function projectTotals(
   userId: string
 ): Promise<{ projects: number; chunks: number }> {
