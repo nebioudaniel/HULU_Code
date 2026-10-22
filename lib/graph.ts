@@ -197,25 +197,6 @@ export function topFolder(path: string): string {
   return segment || path
 }
 
-function languageOf(path: string): string {
-  const ext = path.slice(path.lastIndexOf("."))
-  switch (ext) {
-    case ".ts":
-    case ".tsx":
-      return "TypeScript"
-    case ".js":
-    case ".jsx":
-    case ".mjs":
-      return "JavaScript"
-    case ".go":
-      return "Go"
-    case ".py":
-      return "Python"
-    default:
-      return "Other"
-  }
-}
-
 export function buildGraphModel(files: FileRow[], edges: Edge[]): GraphModel {
   const nodes = new Map<string, NodeMeta>()
   const inDegree = new Map<string, number>()
@@ -248,7 +229,6 @@ export function buildGraphModel(files: FileRow[], edges: Edge[]): GraphModel {
   for (const edge of edges) {
     if (!nodes.has(edge.fromPath) || !nodes.has(edge.toPath)) continue
     if (edge.fromPath === edge.toPath) continue
-    const key = edge.fromPath + "\x00" + edge.toPath
     // dedupe handled server-side, but be safe here too
     if (adjacency.get(edge.fromPath)!.has(edge.toPath)) continue
     adjacency.get(edge.fromPath)!.add(edge.toPath)
@@ -618,8 +598,7 @@ export function writeURLState(
 }
 
 export function folderColorClass(folder: string): string {
-  const hash = hashString(folder)
-  return GRAPH_COLORS[hash % GRAPH_COLORS.length]
+  return colorValue(GRAPH_COLORS[hashString(folder) % GRAPH_COLORS.length])
 }
 
 function hashString(s: string): number {
@@ -631,5 +610,9 @@ function hashString(s: string): number {
 }
 
 export function roleColorClass(role: FileRole): string {
-  return GRAPH_COLORS[roleColorIndex(role)]
+  return colorValue(GRAPH_COLORS[roleColorIndex(role)])
+}
+
+function colorValue(variable: string): string {
+  return `var(${variable})`
 }

@@ -190,6 +190,6 @@ test("URL state parse and write round-trip", () => {
 })
 
 test("folderColorClass and roleColorClass return graph colors", () => {
-  assert.ok(folderColorClass("app").startsWith("--graph-"))
-  assert.ok(roleColorClass("api-route").startsWith("--graph-"))
+  assert.ok(folderColorClass("app").startsWith("var(--graph-"))
+  assert.ok(roleColorClass("api-route").startsWith("var(--graph-"))
 })
