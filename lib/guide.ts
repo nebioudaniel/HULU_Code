@@ -1,4 +1,7 @@
 import { fileRole, type GraphModel, type NodeMeta } from "./graph.ts"
+import { DEEPSEEK_API_KEY, AI_BASE_URL, AI_MODEL, AI_ENABLED } from "./ai.ts"
+
+export { DEEPSEEK_API_KEY, AI_BASE_URL, AI_MODEL, AI_ENABLED }
 
 export type Manifest = {
   name?: string

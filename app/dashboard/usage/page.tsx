@@ -1,4 +1,5 @@
 import { connection } from "next/server"
+import { neon } from "@neondatabase/serverless"
 
 import { auth } from "@/auth"
 import { PageHeader } from "@/components/dashboard/page-header"
@@ -45,15 +46,24 @@ export default async function UsagePage() {
 
   const userId = session?.user?.id
 
-  const [apiKeyCount, totals] = await Promise.all([
+  const [apiKeyCount, totals, aiUsed] = await Promise.all([
     userId ? countActiveApiKeys(userId) : Promise.resolve(0),
     userId ? projectTotals(userId) : Promise.resolve({ projects: 0, chunks: 0 }),
+    userId
+      ? neon(process.env.DATABASE_URL!)`
+          SELECT COUNT(*)::int AS count
+          FROM ai_events
+          WHERE user_id = ${userId}
+            AND kind = 'question'
+            AND created_at > NOW() - INTERVAL '1 month'
+        `.then((r) => r[0]?.count ?? 0)
+      : Promise.resolve(0),
   ])
 
   const meters: Meter[] = [
     { label: "Projects", used: totals.projects, limit: limits.projects },
     { label: "Code chunks", used: totals.chunks, limit: limits.chunks },
-    { label: "AI questions", used: 0, limit: limits.questionsPerMonth },
+    { label: "AI questions", used: aiUsed, limit: limits.questionsPerMonth },
     { label: "API keys", used: apiKeyCount, limit: limits.apiKeys },
   ]
 

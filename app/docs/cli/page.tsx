@@ -154,13 +154,15 @@ symlink      0`}</Code>
           <Code>{`hulucode scan --local --sync
 hulucode scan --local --sync --name "My Project"
 hulucode scan --local --sync --dry-run
-hulucode scan --local --sync --yes`}</Code>
+hulucode scan --local --sync --yes
+hulucode scan --local --sync --include-readme`}</Code>
           <Bullets
             items={[
               "--sync uploads the project structure to your account.",
               "--name sets the project name (defaults to the directory name).",
               "--dry-run prints what would be sent, including the payload size, without sending anything.",
               "--yes approves the sync without the confirmation prompt.",
+              "--include-readme uploads the project README (size, first 3 lines shown, confirmation prompt; use --yes to skip). The dashboard checkbox \"Include README\" must also be checked for AI questions to use it.",
             ]}
           />
           <p>

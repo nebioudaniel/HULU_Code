@@ -64,7 +64,7 @@ type NavItem = {
 const mainNav: NavItem[] = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard, exact: true },
   { label: "Projects", href: "/dashboard/projects", icon: FolderGit2 },
-  { label: "Query log", href: "/dashboard/queries", icon: MessagesSquare },
+  { label: "Questions", href: "/dashboard/queries", icon: MessagesSquare },
   { label: "How to use", href: "/dashboard/guide", icon: BookOpen },
 ]
 

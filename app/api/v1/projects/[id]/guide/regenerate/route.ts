@@ -6,12 +6,7 @@ import { auth } from "@/auth"
 import { getPlanLimits } from "@/lib/plans"
 import { isProjectId, loadProjectPage, type ProjectFileRow, type ProjectEdgeRow } from "@/lib/projects"
 import { buildGraphModel } from "@/lib/graph"
-import { computeDeterministicGuide, inputHash, validateAIOutput, type DeterministicGuide } from "@/lib/guide"
-
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
-const AI_BASE_URL = process.env.AI_BASE_URL ?? "https://api.deepseek.com"
-const AI_MODEL = process.env.AI_MODEL ?? "deepseek-flash"
-const AI_ENABLED = process.env.AI_ENABLED === "true"
+import { computeDeterministicGuide, inputHash, validateAIOutput, type DeterministicGuide, AI_MODEL, AI_ENABLED, DEEPSEEK_API_KEY, AI_BASE_URL } from "@/lib/guide"
 
 async function callDeepSeek(prompt: string, _inputHash: string): Promise<DeterministicGuide | null> {
   if (!DEEPSEEK_API_KEY || !AI_ENABLED) return null
@@ -125,13 +120,13 @@ export async function POST(
 
   const limits = getPlanLimits(projectRow[0].plan_tier)
   const aiEvents = await sql`SELECT COUNT(*)::int AS count FROM ai_events WHERE user_id = ${session.user.id} AND created_at > NOW() - INTERVAL '1 month'`
-  const monthlyUsed = aiEvents[0]?.count ?? 0
+  const monthlyUsed = (aiEvents as { count: number }[])[0]?.count ?? 0
   if (monthlyUsed >= limits.questionsPerMonth) {
     return NextResponse.json({ error: "Monthly AI limit reached", limit: limits.questionsPerMonth }, { status: 403 })
   }
 
   const burst = await sql`SELECT COUNT(*)::int AS count FROM ai_events WHERE user_id = ${session.user.id} AND created_at > NOW() - INTERVAL '1 day'`
-  if ((burst[0]?.count ?? 0) >= 20) {
+  if (((burst as { count: number }[])[0]?.count ?? 0) >= 20) {
     return NextResponse.json({ error: "Daily burst limit reached (20)" }, { status: 429 })
   }
 

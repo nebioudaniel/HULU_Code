@@ -72,6 +72,40 @@ export default function PrivacyPage() {
         </p>
       </section>
 
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          AI questions
+        </h2>
+        <p className="mt-3 text-sm text-muted-foreground">
+          When you ask a question about your codebase, the dashboard sends only
+          structural context to the AI provider (DeepSeek):
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc pl-5">
+          <li>Project manifest (name, scripts)</li>
+          <li>Top relevant file paths and their symbol names</li>
+          <li>Hotspot files and module summary</li>
+          <li>Your question text</li>
+        </ul>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Source code, file contents, absolute paths, and secrets are never sent
+          to the AI provider. The AI is instructed to ignore any instructions in
+          the provided data. You control whether the README is included via the
+          dashboard checkbox and the CLI <code className="font-mono text-xs">--include-readme</code>
+          flag.
+        </p>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          Data retention
+        </h2>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Questions and answers are stored in your project&apos;s query history.
+          You can delete individual questions or clear all history per project.
+          AI event logs (for plan limits) are retained for 90 days.
+        </p>
+      </section>
+
       <p className="mt-10 text-xs text-muted-foreground">
         This is a plain-language summary, not a legal contract.
       </p>

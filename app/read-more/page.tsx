@@ -190,11 +190,17 @@ export default function ReadMorePage() {
         </ul>
       </Section>
 
-      <Section title="Dependency map and impact analysis">
+      <Section title="Ask your codebase (AI questions)">
         <p className="text-sm text-muted-foreground">
-          The dependency map shows how your files and folders import each other,
-          with hotspots highlighted. Impact analysis shows which files would be
-          affected by a change, grouped by how far the dependency reaches.
+          On the Questions page, ask questions about your codebase in plain English.
+          The dashboard sends structural context (file paths, symbols, hotspots, module
+          summary) to DeepSeek and returns an answer with cited files, confidence, and
+          follow-up suggestions. Answers are saved to your query history.
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          You control what the AI sees: the README is only included when you run the CLI
+          with <code className="font-mono text-xs">--include-readme</code> and check the
+          dashboard checkbox. Source code, file contents, and secrets are never sent.
         </p>
       </Section>
 
@@ -236,6 +242,14 @@ export default function ReadMorePage() {
           <li>Team workspace</li>
           <li>Prebuilt CLI downloads</li>
         </ul>
+      </Section>
+
+      <Section title="Dependency map and impact analysis">
+        <p className="text-sm text-muted-foreground">
+          The dependency map shows how your files and folders import each other,
+          with hotspots highlighted. Impact analysis shows which files would be
+          affected by a change, grouped by how far the dependency reaches.
+        </p>
       </Section>
 
       <div className="border-t border-border pt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
