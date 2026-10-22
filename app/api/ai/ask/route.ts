@@ -95,7 +95,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 })
   }
 
-  const limits = getPlanLimits(projectRow[0].plan_tier)
+  const userRow = await sql`SELECT plan_tier FROM users WHERE id = ${session.user.id}`
+  const userPlanTier = userRow[0]?.plan_tier ?? "free"
+  const limits = getPlanLimits(userPlanTier)
   const planCheck = await checkPlanLimit(sql, session.user.id, limits.questionsPerMonth)
   if (!planCheck.allowed) {
     return NextResponse.json({ error: "Monthly AI limit reached", limit: limits.questionsPerMonth, used: planCheck.used }, { status: 403 })

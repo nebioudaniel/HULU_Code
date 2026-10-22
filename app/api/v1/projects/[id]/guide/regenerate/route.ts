@@ -118,14 +118,16 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  const limits = getPlanLimits(projectRow[0].plan_tier)
-  const aiEvents = await sql`SELECT COUNT(*)::int AS count FROM ai_events WHERE user_id = ${session.user.id} AND created_at > NOW() - INTERVAL '1 month'`
+  const userRow = await sql`SELECT plan_tier FROM users WHERE id = ${session.user.id}`
+  const userPlanTier = userRow[0]?.plan_tier ?? "free"
+  const limits = getPlanLimits(userPlanTier)
+  const aiEvents = await sql`SELECT COUNT(*)::int AS count FROM ai_events WHERE user_id = ${session.user.id} AND kind = 'guide' AND created_at > NOW() - INTERVAL '1 month'`
   const monthlyUsed = (aiEvents as { count: number }[])[0]?.count ?? 0
   if (monthlyUsed >= limits.questionsPerMonth) {
     return NextResponse.json({ error: "Monthly AI limit reached", limit: limits.questionsPerMonth }, { status: 403 })
   }
 
-  const burst = await sql`SELECT COUNT(*)::int AS count FROM ai_events WHERE user_id = ${session.user.id} AND created_at > NOW() - INTERVAL '1 day'`
+  const burst = await sql`SELECT COUNT(*)::int AS count FROM ai_events WHERE user_id = ${session.user.id} AND kind = 'guide' AND created_at > NOW() - INTERVAL '1 day'`
   if (((burst as { count: number }[])[0]?.count ?? 0) >= 20) {
     return NextResponse.json({ error: "Daily burst limit reached (20)" }, { status: 429 })
   }

@@ -9,9 +9,7 @@ import {
   FileText,
   Loader2,
   MessageSquare,
-  Plus,
   Search,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react"
@@ -25,7 +23,7 @@ import { EmptyState } from "@/components/dashboard/empty-state"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { PageHelper } from "@/components/dashboard/page-helper"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { formatCount } from "@/lib/plans"
+import { formatCount, getPlanLabel, getPlanLimits } from "@/lib/plans"
 import { fileRole, roleColorClass } from "@/lib/graph"
 
 type QueryRecord = {
@@ -53,9 +51,10 @@ export default function QueriesPage() {
   const [error, setError] = useState<string | null>(null)
   const [question, setQuestion] = useState("")
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
+  const [projects, setProjects] = useState<{ id: string; name: string; planTier: string }[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [planLimit, setPlanLimit] = useState<{ allowed: boolean; used: number; limit: number } | null>(null)
 
   const fetchProjects = async () => {
     try {
@@ -70,9 +69,21 @@ export default function QueriesPage() {
     } catch {}
   }
 
+  const fetchPlanLimit = async () => {
+    if (!selectedProjectId) return
+    try {
+      const res = await fetch(`/api/ai/plan-limit?projectId=${selectedProjectId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setPlanLimit(data)
+      }
+    } catch {}
+  }
+
   const fetchQueries = async () => {
     if (!selectedProjectId) return
     try {
+      setLoading(true)
       const res = await fetch(`/api/ai/queries?projectId=${selectedProjectId}`)
       if (res.ok) {
         const data = await res.json()
@@ -80,6 +91,8 @@ export default function QueriesPage() {
       }
     } catch {
       setError("Failed to load queries")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -91,6 +104,7 @@ export default function QueriesPage() {
   useEffect(() => {
     setLoading(true)
     fetchQueries().finally(() => setLoading(false))
+    fetchPlanLimit()
   }, [selectedProjectId])
 /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
@@ -108,6 +122,7 @@ export default function QueriesPage() {
       if (!res.ok) throw new Error(data.error ?? "Failed to ask")
       setQueries((prev) => [data, ...prev])
       setQuestion("")
+      fetchPlanLimit()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to ask")
     } finally {
@@ -123,6 +138,7 @@ export default function QueriesPage() {
     try {
       await fetch(`/api/ai/queries?projectId=${selectedProjectId}&id=${id}`, { method: "DELETE" })
       setQueries((prev) => prev.filter((q) => q.id !== id))
+      fetchPlanLimit()
     } catch {}
   }
 
@@ -131,6 +147,7 @@ export default function QueriesPage() {
       await fetch(`/api/ai/queries?projectId=${selectedProjectId}`, { method: "DELETE" })
       setQueries([])
       setShowClearConfirm(false)
+      fetchPlanLimit()
     } catch {}
   }
 
@@ -140,19 +157,20 @@ export default function QueriesPage() {
     } catch {}
   }
 
+  const selectedProject = projects.find((p) => p.id === selectedProjectId)
+  const planLimits = selectedProject ? getPlanLimits(selectedProject.planTier) : getPlanLimits("free")
+  const questionsUsed = planLimit?.used ?? 0
+  const questionsLimit = planLimit?.limit ?? planLimits.questionsPerMonth
+  const canAsk = planLimit?.allowed ?? true
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Ask your codebase"
         description="Questions you asked about your codebases."
-        action={
-          <span className="text-xs text-muted-foreground">
-            AI features require a Pro plan
-          </span>
-        }
       />
       <PageHelper
-        text="Ask a question about your codebase. The AI will search the structure and give you an answer with cited files."
+        text="Select a project, then ask a question about its codebase. The AI will search the structure and give you an answer with cited files."
       />
 
       <div className="grid gap-6 lg:grid-cols-4">
@@ -162,7 +180,7 @@ export default function QueriesPage() {
               <div>
                 <CardTitle className="text-balance">Ask a question</CardTitle>
                 <CardDescription>
-                  Type your question or pick a suggestion below.
+                  Select a project, then type your question or pick a suggestion below.
                 </CardDescription>
               </div>
               <Select
@@ -188,41 +206,64 @@ export default function QueriesPage() {
               </Select>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
-              <div className="flex gap-2">
-                <Input
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="e.g., Where is authentication handled?"
-                  className="flex-1"
-                  disabled={submitting || !selectedProjectId}
-                />
-                <Button onClick={submitQuestion} disabled={submitting || !selectedProjectId || !question.trim()}>
-                  {submitting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Search className="size-4" />
+              {selectedProjectId ? (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {getPlanLabel(selectedProject?.planTier ?? "free")} plan
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {questionsUsed} / {questionsLimit} questions this month
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={question}
+                      onChange={(e) => setQuestion(e.target.value)}
+                      placeholder="e.g., Where is authentication handled?"
+                      className="flex-1"
+                      disabled={submitting || !canAsk}
+                    />
+                    <Button onClick={submitQuestion} disabled={submitting || !canAsk || !question.trim()}>
+                      {submitting ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Search className="size-4" />
+                      )}
+                      Ask
+                    </Button>
+                  </div>
+                  {!canAsk && (
+                    <p className="text-sm text-rose-600">
+                      Monthly limit reached. Upgrade to Pro for more questions.
+                    </p>
                   )}
-                  Ask
-                </Button>
-              </div>
-              {error && (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-700 text-sm">
-                  {error}
+                  {error && (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-700 text-sm">
+                      {error}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {SUGGESTIONS.map((s) => (
+                      <Button
+                        key={s}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSuggestion(s)}
+                        className="text-xs"
+                        disabled={submitting || !canAsk}
+                      >
+                        {s}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquare className="size-12 mx-auto mb-3" />
+                  <p>Select a project to start asking questions.</p>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <Button
-                    key={s}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSuggestion(s)}
-                    className="text-xs"
-                  >
-                    {s}
-                  </Button>
-                ))}
-              </div>
             </CardContent>
           </Card>
 
@@ -310,7 +351,7 @@ export default function QueriesPage() {
                 <EmptyState
                   icon={MessageSquare}
                   title="No questions yet"
-                  description="Ask your first question above to get started."
+                  description="Select a project and ask your first question above to get started."
                 />
               </CardContent>
             </Card>
@@ -366,9 +407,8 @@ export default function QueriesPage() {
                   size="sm"
                   className="w-full justify-start text-xs"
                   onClick={() => handleSuggestion(s)}
-                  disabled={submitting || !selectedProjectId}
+                  disabled={submitting || !selectedProjectId || !canAsk}
                 >
-                  <Sparkles className="size-3.5" />
                   {s}
                 </Button>
               ))}
