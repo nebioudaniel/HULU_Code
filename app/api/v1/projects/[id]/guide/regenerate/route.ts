@@ -139,7 +139,12 @@ export async function POST(
   const edges: ProjectEdgeRow[] = data.edges
 
   const model = buildGraphModel(files, edges)
-  const manifest = { name: projectRow[0].name, scripts: {} }
+  const externalDeps = projectRow[0].external_deps
+  const manifest = {
+    name: projectRow[0].name,
+    description: Array.isArray(externalDeps) ? externalDeps.map((d: { name: string }) => d.name).join(", ") : "",
+    scripts: {},
+  }
   const metaRow = await sql`SELECT * FROM project_meta WHERE project_id = ${id}`
   const readme = metaRow[0]?.readme
 

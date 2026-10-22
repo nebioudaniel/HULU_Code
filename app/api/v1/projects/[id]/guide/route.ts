@@ -42,9 +42,10 @@ export async function GET(
 
   const files: ProjectFileRow[] = data.files
   const edges: ProjectEdgeRow[] = data.edges
+  const externalDeps = projectRow[0].external_deps
   const manifest = {
     name: projectRow[0].name,
-    description: projectRow[0].external_deps,
+    description: Array.isArray(externalDeps) ? externalDeps.map((d: { name: string }) => d.name).join(", ") : "",
     scripts: {},
   }
   const readme = metaRow[0]?.readme ? { size: metaRow[0].readme.length, preview: metaRow[0].readme.slice(0, 200), truncated: metaRow[0].readme.length > 200 } : undefined
