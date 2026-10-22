@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import {
+  BookOpen,
   FileCode,
   GitCompareArrows,
   LayoutDashboard,
@@ -22,6 +23,7 @@ const TABS = [
   { id: "files", label: "Files & symbols", icon: FileCode },
   { id: "graph", label: "Dependency map", icon: Network },
   { id: "impact", label: "Impact analysis", icon: GitCompareArrows },
+  { id: "guide", label: "Start Here", icon: BookOpen },
 ] as const
 
 type ProjectTabId = (typeof TABS)[number]["id"]
@@ -40,6 +42,18 @@ const LazyGraph = dynamic(
 
 const LazyImpact = dynamic(
   () => import("./impact-analysis").then((mod) => mod.ImpactAnalysis),
+  {
+    loading: () => (
+      <div className="h-[520px] flex items-center justify-center rounded-lg border border-background/50 bg-background">
+        <Skeleton className="w-48 h-8" />
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+const LazyGuide = dynamic(
+  () => import("./start-here-tab").then((mod) => mod.StartHereTab),
   {
     loading: () => (
       <div className="h-[520px] flex items-center justify-center rounded-lg border border-background/50 bg-background">
@@ -161,6 +175,12 @@ export function ProjectWorkspace({
       )}
 
       {tab === "files" && <FilesSymbols files={files} />}
+
+      {tab === "guide" && (
+        <div className="w-full h-[520px]">
+          <LazyGuide projectId={project.id} />
+        </div>
+      )}
     </div>
   )
 }
