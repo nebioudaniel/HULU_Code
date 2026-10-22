@@ -15,7 +15,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     label: "Free",
     projects: 2,
     chunks: 5_000,
-    questionsPerMonth: 50,
+    questionsPerMonth: 5,
     apiKeys: 1,
   },
   pro: {
