@@ -5,7 +5,7 @@ import { neon } from "@neondatabase/serverless"
 import { auth } from "@/auth"
 import { isProjectId, loadProjectPage, type ProjectFileRow, type ProjectEdgeRow } from "@/lib/projects"
 import { buildGraphModel } from "@/lib/graph"
-import { computeDeterministicGuide, inputHash } from "@/lib/guide"
+import { computeDeterministicGuide, inputHash, toGuidePayload } from "@/lib/guide"
 
 export async function GET(
   _req: Request,
@@ -57,10 +57,10 @@ export async function GET(
   const isOutOfDate = guideRow[0] && guideRow[0].input_hash !== currentHash
 
   return NextResponse.json({
-    guide: guideRow[0]?.guide ?? deterministicGuide,
+    guide: toGuidePayload((guideRow[0]?.guide as never) ?? deterministicGuide),
     source: guideRow[0]?.source ?? "deterministic",
-    model: guideRow[0]?.model,
-    generatedAt: guideRow[0]?.generated_at,
+    model: guideRow[0]?.model ?? null,
+    generatedAt: guideRow[0]?.generated_at ?? new Date().toISOString(),
     includeReadme,
     isOutOfDate,
     readingListCandidates: deterministicGuide.readingList.map((r) => r.path),

@@ -177,7 +177,7 @@ export function ProjectWorkspace({
       {tab === "files" && <FilesSymbols files={files} />}
 
       {tab === "guide" && (
-        <div className="w-full h-[520px]">
+        <div className="w-full">
           <LazyGuide projectId={project.id} />
         </div>
       )}

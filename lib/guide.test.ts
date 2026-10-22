@@ -5,6 +5,7 @@ import {
   entryPointType,
   moduleLabel,
   semanticModuleLabel,
+  toGuidePayload,
   validateAIOutput,
 } from "./guide.ts"
 import { buildGraphModel } from "./graph.ts"
@@ -148,4 +149,33 @@ test("validateAIOutput accepts valid output", () => {
   }
   const r = validateAIOutput(good, candidates)
   assert.equal(r.ok, true)
+})
+
+test("toGuidePayload normalizes camelCase deterministic guide", () => {
+  const guide = {
+    whatFor: "A test project",
+    modules: [{ name: "lib", fileCount: 3, topFiles: ["lib/a.ts"] }],
+    readingList: [{ path: "lib/a.ts", reason: "Entry" }],
+    flow: "lib -> lib",
+    careful: [{ path: "lib/a.ts", advice: "Hotspot" }],
+  }
+  const payload = toGuidePayload(guide)
+  assert.equal(payload.what_for, "A test project")
+  assert.equal(payload.reading_list.length, 1)
+  assert.equal(payload.reading_list[0].path, "lib/a.ts")
+  assert.equal(payload.modules[0].purpose, "")
+  assert.equal(payload.flow, "lib -> lib")
+})
+
+test("toGuidePayload accepts already snake_case payload", () => {
+  const payload = toGuidePayload({
+    what_for: "Already snake",
+    modules: [{ name: "app", purpose: "UI", fileCount: 1, topFiles: [] }],
+    reading_list: [{ path: "app/page.tsx", reason: "Entry" }],
+    flow: "app",
+    careful: [],
+  })
+  assert.equal(payload.what_for, "Already snake")
+  assert.equal(payload.modules[0].purpose, "UI")
+  assert.deepEqual(payload.careful, [])
 })

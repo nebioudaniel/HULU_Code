@@ -5,10 +5,7 @@ import { neon } from "@neondatabase/serverless"
 import { auth } from "@/auth"
 import { isProjectId } from "@/lib/projects"
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ projectId?: string }> }
-): Promise<NextResponse> {
+export async function GET(req: Request): Promise<NextResponse> {
   await connection()
 
   const session = await auth()
@@ -16,11 +13,8 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { projectId } = await params
+  const projectId = new URL(req.url).searchParams.get("projectId")
   if (!projectId || !isProjectId(projectId)) {
-    return NextResponse.json({ error: "Invalid projectId" }, { status: 400 })
-  }
-  if (!isProjectId(projectId)) {
     return NextResponse.json({ error: "Invalid projectId" }, { status: 400 })
   }
 
@@ -44,10 +38,7 @@ export async function GET(
   })
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ projectId?: string }> }
-): Promise<NextResponse> {
+export async function DELETE(req: Request): Promise<NextResponse> {
   await connection()
 
   const session = await auth()
@@ -55,7 +46,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { projectId } = await params
+  const searchParams = new URL(req.url).searchParams
+  const projectId = searchParams.get("projectId")
   if (!projectId || !isProjectId(projectId)) {
     return NextResponse.json({ error: "Invalid projectId" }, { status: 400 })
   }
@@ -67,7 +59,6 @@ export async function DELETE(
     return NextResponse.json({ error: "Project not found" }, { status: 404 })
   }
 
-  const { searchParams } = new URL(req.url)
   const id = searchParams.get("id")
 
   if (id) {

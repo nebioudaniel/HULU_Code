@@ -6,10 +6,7 @@ import { auth } from "@/auth"
 import { getPlanLimits } from "@/lib/plans"
 import { isProjectId } from "@/lib/projects"
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ projectId?: string }> }
-) {
+export async function GET(req: Request): Promise<NextResponse> {
   await connection()
 
   const session = await auth()
@@ -17,20 +14,21 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { projectId } = await params
+  const projectId = new URL(req.url).searchParams.get("projectId")
   if (!projectId || !isProjectId(projectId)) {
     return NextResponse.json({ error: "Invalid projectId" }, { status: 400 })
   }
 
   const sql = neon(process.env.DATABASE_URL!)
 
-  const projectRow = await sql`SELECT * FROM projects WHERE id = ${projectId} AND user_id = ${session.user.id}`
+  const projectRow = await sql`SELECT id FROM projects WHERE id = ${projectId} AND user_id = ${session.user.id}`
   if (!projectRow[0]) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 })
   }
 
-  const userRow = await sql`SELECT plan_tier FROM users WHERE id = ${session.user.id}`
-  const userPlanTier = userRow[0]?.plan_tier ?? "free"
+  const userRow = await sql`SELECT plan_tier, ai_enabled FROM users WHERE id = ${session.user.id}`
+  const userPlanTier = (userRow[0]?.plan_tier as string | undefined) ?? "free"
+  const aiEnabled = Boolean(userRow[0]?.ai_enabled)
 
   const limits = getPlanLimits(userPlanTier)
 
@@ -44,5 +42,6 @@ export async function GET(
     used,
     limit: limits.questionsPerMonth,
     planTier: userPlanTier,
+    aiEnabled,
   })
 }

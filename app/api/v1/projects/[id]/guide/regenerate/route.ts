@@ -6,7 +6,7 @@ import { auth } from "@/auth"
 import { getPlanLimits } from "@/lib/plans"
 import { isProjectId, loadProjectPage, type ProjectFileRow, type ProjectEdgeRow } from "@/lib/projects"
 import { buildGraphModel } from "@/lib/graph"
-import { computeDeterministicGuide, inputHash, validateAIOutput, type DeterministicGuide, AI_MODEL, AI_ENABLED, DEEPSEEK_API_KEY, AI_BASE_URL } from "@/lib/guide"
+import { computeDeterministicGuide, inputHash, validateAIOutput, toGuidePayload, type DeterministicGuide, AI_MODEL, AI_ENABLED, DEEPSEEK_API_KEY, AI_BASE_URL } from "@/lib/guide"
 
 async function callDeepSeek(prompt: string, _inputHash: string): Promise<DeterministicGuide | null> {
   if (!DEEPSEEK_API_KEY || !AI_ENABLED) return null
@@ -186,13 +186,13 @@ export async function POST(
   await sql`INSERT INTO project_guides (project_id, ranking, guide, source, include_readme, input_hash, model, generated_at) VALUES (${id}, ${JSON.stringify(deterministicGuide.readingList)}, ${JSON.stringify(finalGuide)}, ${source}, ${includeReadme}, ${currentHash}, ${modelName ?? null}, NOW()) ON CONFLICT (project_id) DO UPDATE SET ranking = EXCLUDED.ranking, guide = EXCLUDED.guide, source = EXCLUDED.source, include_readme = EXCLUDED.include_readme, input_hash = EXCLUDED.input_hash, model = EXCLUDED.model, generated_at = EXCLUDED.generated_at`
 
   return NextResponse.json({
-    guide: finalGuide,
+    guide: toGuidePayload(finalGuide),
     source,
     model: modelName,
     generatedAt: new Date().toISOString(),
     includeReadme,
     isOutOfDate: false,
     aiError,
-    questionsLeft: limits.questionsPerMonth - monthlyUsed - 1,
+    questionsLeft: Math.max(0, limits.questionsPerMonth - monthlyUsed - 1),
   })
 }

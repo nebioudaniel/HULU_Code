@@ -136,7 +136,7 @@ export function StartHereGuide({ projectId }: { projectId: string }) {
 
   const deleteReadme = async () => {
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/meta/readme`, {
+      const res = await fetch(`/api/v1/projects/${projectId}/meta`, {
         method: "DELETE",
       })
       if (!res.ok) throw new Error("Failed to delete README")
@@ -182,7 +182,7 @@ export function StartHereGuide({ projectId }: { projectId: string }) {
   const candidatePaths = guide.reading_list.map((r) => r.path)
 
   return (
-    <div className="space-y-4 h-full overflow-y-auto pr-2">
+    <div className="space-y-4 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
           <BookOpen className="size-4 text-muted-foreground" aria-hidden />

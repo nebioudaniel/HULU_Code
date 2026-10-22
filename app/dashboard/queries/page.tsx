@@ -51,10 +51,10 @@ export default function QueriesPage() {
   const [error, setError] = useState<string | null>(null)
   const [question, setQuestion] = useState("")
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [projects, setProjects] = useState<{ id: string; name: string; planTier: string }[]>([])
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
-  const [planLimit, setPlanLimit] = useState<{ allowed: boolean; used: number; limit: number } | null>(null)
+  const [planLimit, setPlanLimit] = useState<{ allowed: boolean; used: number; limit: number; planTier?: string } | null>(null)
 
   const fetchProjects = async () => {
     try {
@@ -157,8 +157,7 @@ export default function QueriesPage() {
     } catch {}
   }
 
-  const selectedProject = projects.find((p) => p.id === selectedProjectId)
-  const planLimits = selectedProject ? getPlanLimits(selectedProject.planTier) : getPlanLimits("free")
+  const planLimits = getPlanLimits(planLimit?.planTier ?? "free")
   const questionsUsed = planLimit?.used ?? 0
   const questionsLimit = planLimit?.limit ?? planLimits.questionsPerMonth
   const canAsk = planLimit?.allowed ?? true
@@ -210,7 +209,7 @@ export default function QueriesPage() {
                 <>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {getPlanLabel(selectedProject?.planTier ?? "free")} plan
+                      {getPlanLabel(planLimit?.planTier ?? "free")} plan
                     </span>
                     <span className="font-medium tabular-nums">
                       {questionsUsed} / {questionsLimit} questions this month

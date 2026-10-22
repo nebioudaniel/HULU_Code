@@ -35,6 +35,7 @@ export type RankedFile = {
 
 export type ModuleInfo = {
   name: string
+  purpose?: string
   fileCount: number
   topFiles: string[]
 }
@@ -45,6 +46,40 @@ export type DeterministicGuide = {
   readingList: { path: string; reason: string }[]
   flow: string
   careful: { path: string; advice: string }[]
+}
+
+export type GuidePayload = {
+  what_for: string
+  modules: { name: string; purpose: string; fileCount: number; topFiles: string[] }[]
+  reading_list: { path: string; reason: string }[]
+  flow: string
+  careful: { path: string; advice: string }[]
+}
+
+export function toGuidePayload(guide: DeterministicGuide | GuidePayload): GuidePayload {
+  const g = guide as Record<string, unknown>
+  const whatFor = (g.whatFor ?? g.what_for ?? "") as string
+  const modules = ((g.modules ?? []) as Array<Record<string, unknown>>).map((m) => ({
+    name: String(m.name ?? ""),
+    purpose: String(m.purpose ?? ""),
+    fileCount: Number(m.fileCount ?? 0),
+    topFiles: Array.isArray(m.topFiles) ? (m.topFiles as string[]) : [],
+  }))
+  const readingList = ((g.readingList ?? g.reading_list ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    path: String(r.path ?? ""),
+    reason: String(r.reason ?? ""),
+  }))
+  const careful = ((g.careful ?? []) as Array<Record<string, unknown>>).map((c) => ({
+    path: String(c.path ?? ""),
+    advice: String(c.advice ?? ""),
+  }))
+  return {
+    what_for: whatFor,
+    modules,
+    reading_list: readingList,
+    flow: String(g.flow ?? ""),
+    careful,
+  }
 }
 
 export function entryPointType(path: string): { type: string; reason: string } | null {

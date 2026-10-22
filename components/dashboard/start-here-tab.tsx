@@ -53,7 +53,7 @@ export function StartHereTab({ projectId }: { projectId: string }) {
   const searchParams = useSearchParams()
 
   return (
-    <div className="w-full h-[520px]">
+    <div className="w-full">
       <LazyGuide projectId={projectId} />
     </div>
   )
