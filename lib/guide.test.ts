@@ -179,3 +179,34 @@ test("toGuidePayload accepts already snake_case payload", () => {
   assert.equal(payload.modules[0].purpose, "UI")
   assert.deepEqual(payload.careful, [])
 })
+
+test("whatFor does not dump the dependency list", () => {
+  const model = makeGraph(
+    [
+      { path: "app/page.tsx", language: "TypeScript" },
+      { path: "app/layout.tsx", language: "TypeScript" },
+      { path: "lib/db.ts", language: "TypeScript" },
+    ],
+    [
+      { from: "app/page.tsx", to: "lib/db.ts" },
+      { from: "app/layout.tsx", to: "lib/db.ts" },
+    ]
+  )
+  const guide = computeDeterministicGuide(model, {
+    name: "frontend",
+    description: "@neondatabase/serverless, next, react, lucide-react, sonner",
+  })
+  assert.ok(!guide.whatFor.includes("@neondatabase/serverless"))
+  assert.ok(!guide.whatFor.includes("lucide-react"))
+  assert.ok(guide.whatFor.includes("frontend is"))
+  assert.ok(guide.whatFor.includes("files across"))
+})
+
+test("whatFor uses a short description when present", () => {
+  const model = makeGraph([{ path: "lib/a.ts", language: "TypeScript" }], [])
+  const guide = computeDeterministicGuide(model, {
+    name: "small",
+    description: "A tiny library for testing",
+  })
+  assert.ok(guide.whatFor.startsWith("A tiny library for testing."))
+})

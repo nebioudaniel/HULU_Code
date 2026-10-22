@@ -14,7 +14,9 @@ export function getAIModel(): string {
 
 export function isAIEnabled(): boolean {
   const value = (process.env.AI_ENABLED ?? "").trim().toLowerCase()
-  return value === "true" || value === "1" || value === "yes" || value === "on"
+  if (value === "false" || value === "0" || value === "no" || value === "off") return false
+  if (value === "true" || value === "1" || value === "yes" || value === "on") return true
+  return Boolean(process.env.DEEPSEEK_API_KEY)
 }
 
 export type AskResult =
@@ -161,9 +163,12 @@ export async function askAI(context: AskContext, structure: {
   hotspots: string[]
   moduleSummary: string
 }): Promise<AskResult> {
+  if (!isAIEnabled()) {
+    return { ok: false, error: "AI is turned off on the server (set AI_ENABLED=true)", retry: false }
+  }
   const apiKey = getDeepSeekKey()
-  if (!apiKey || !isAIEnabled()) {
-    return { ok: false, error: "AI features disabled", retry: false }
+  if (!apiKey) {
+    return { ok: false, error: "AI key is not configured on the server (DEEPSEEK_API_KEY)", retry: false }
   }
 
   const userPrompt = buildUserPrompt({ ...structure, question: context.question })

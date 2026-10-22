@@ -257,15 +257,46 @@ export function computeDeterministicGuide(
   }))
 
   const whatForParts: string[] = []
-  if (manifest.description) whatForParts.push(manifest.description)
-  if (manifest.name) whatForParts.push(`Project: ${manifest.name}`)
-  if (entryPoints.length > 0) {
-    const types = [...new Set(entryPoints.map((e) => e.type))]
-    whatForParts.push(`Entry points: ${types.join(", ")}`)
+  const desc = (manifest.description ?? "").trim()
+  if (desc && desc.length <= 240 && !desc.includes(",")) {
+    whatForParts.push(desc.endsWith(".") ? desc : `${desc}.`)
   }
-  const whatFor = whatForParts.join(". ") || "A software project with no detected entry points or description."
+  const languageNames = [...new Set(nodes.map((n) => n.language).filter((l) => l && l !== "Other"))]
+  const subject = manifest.name ? `${manifest.name} is` : "This is"
+  const langPart = languageNames.length > 0 ? ` a ${languageNames.slice(0, 3).join(" / ")}` : " a software"
+  whatForParts.push(
+    `${subject}${langPart} project with ${model.totalFiles} files across ${modules.length} module${modules.length === 1 ? "" : "s"}.`
+  )
+  if (entryPoints.length > 0) {
+    const types = [...new Set(entryPoints.map((e) => entryLabel(e.type)))]
+    whatForParts.push(`It starts from ${types.join(", ")}.`)
+  }
+  const whatFor = whatForParts.join(" ").trim() || "A software project with no detected entry points."
 
   return { whatFor, modules, readingList, flow, careful }
+}
+
+function entryLabel(type: string): string {
+  switch (type) {
+    case "nextjs-page":
+      return "a Next.js page"
+    case "nextjs-layout":
+      return "a Next.js layout"
+    case "nextjs-pages-index":
+      return "the Pages Router index"
+    case "nextjs-middleware":
+      return "Next.js middleware"
+    case "node-main":
+      return "the Node.js entry file"
+    case "node-server":
+      return "the Node.js server"
+    case "go-main":
+      return "a Go main package"
+    case "python-main":
+      return "the Python entry file"
+    default:
+      return type
+  }
 }
 
 export function inputHash(model: GraphModel, includeReadme: boolean): string {

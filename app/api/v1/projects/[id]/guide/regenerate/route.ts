@@ -53,6 +53,7 @@ async function callDeepSeek(prompt: string, _inputHash: string): Promise<Determi
 
 type Manifest = {
   name?: string
+  description?: string
   scripts?: Record<string, string>
 }
 
@@ -143,10 +144,9 @@ export async function POST(
   const edges: ProjectEdgeRow[] = data.edges
 
   const model = buildGraphModel(files, edges)
-  const externalDeps = projectRow[0].external_deps
   const manifest = {
     name: projectRow[0].name,
-    description: Array.isArray(externalDeps) ? externalDeps.map((d: { name: string }) => d.name).join(", ") : "",
+    description: "",
     scripts: {},
   }
   const metaRow = await sql`SELECT * FROM project_meta WHERE project_id = ${id}`
