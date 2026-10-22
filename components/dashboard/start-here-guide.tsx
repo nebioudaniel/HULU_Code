@@ -223,7 +223,9 @@ export function StartHereGuide({ projectId }: { projectId: string }) {
           <CardTitle className="text-balance">What this project is for</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-foreground">{guide.what_for}</p>
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <p className="text-sm leading-relaxed text-foreground">{guide.what_for}</p>
+          </div>
         </CardContent>
       </Card>
 

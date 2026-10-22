@@ -15,11 +15,24 @@ import { zoomIdentity } from "d3-zoom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet"
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Check,
   ChevronDown,
+  Copy,
   Maximize,
   Network,
   Search,
+  Zap,
   ZoomIn,
   ZoomOut,
 } from "lucide-react"
@@ -67,6 +80,37 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
+function roleArticle(role: FileRole): string {
+  switch (role) {
+    case "api-route":
+      return "an API route"
+    case "page":
+      return "a page"
+    case "layout":
+      return "a layout"
+    case "server-action":
+      return "a server action"
+    case "component":
+      return "a component"
+    case "ui-primitive":
+      return "a UI primitive"
+    case "hook":
+      return "a hook"
+    case "type-definitions":
+      return "a type definition file"
+    case "config":
+      return "a configuration file"
+    case "test":
+      return "a test file"
+    case "cli":
+      return "a CLI file"
+    case "backend":
+      return "a backend file"
+    default:
+      return "a source file"
+  }
+}
+
 export function DependencyMap({ projectId }: { projectId: string }) {
   const [edges, setEdges] = useState<Edge[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,6 +121,9 @@ export function DependencyMap({ projectId }: { projectId: string }) {
   const [zoomTransform, setZoomTransform] = useState(zoomIdentity)
   const [isPanning, setIsPanning] = useState(false)
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
+  const [symbols, setSymbols] = useState<{ kind: string; name: string; parent: string; startLine: number; endLine: number }[]>([])
+  const [symbolsLoading, setSymbolsLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const svgRef = useRef<SVGSVGElement>(null)
   const simRef = useRef<Simulation<NodeData, SimulationLinkDatum<NodeData>> | null>(null)
@@ -175,6 +222,49 @@ export function DependencyMap({ projectId }: { projectId: string }) {
     return id === highlighted || Boolean(adjacency.get(highlighted)?.has(id))
   }
 
+  const outgoing = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const e of edges) {
+      if (!map.has(e.fromPath)) map.set(e.fromPath, new Set())
+      map.get(e.fromPath)!.add(e.toPath)
+    }
+    return map
+  }, [edges])
+
+  const incoming = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const e of edges) {
+      if (!map.has(e.toPath)) map.set(e.toPath, new Set())
+      map.get(e.toPath)!.add(e.fromPath)
+    }
+    return map
+  }, [edges])
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!selected) {
+      setSymbols([])
+      return
+    }
+    let cancelled = false
+    setSymbolsLoading(true)
+    fetch(`/api/v1/projects/${projectId}/files?path=${encodeURIComponent(selected.id)}`)
+      .then((res) => (res.ok ? res.json() : { chunks: [] }))
+      .then((data: { chunks?: { kind: string; name: string; parent: string; startLine: number; endLine: number }[] }) => {
+        if (!cancelled) setSymbols(data.chunks ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setSymbols([])
+      })
+      .finally(() => {
+        if (!cancelled) setSymbolsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selected, projectId])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   useEffect(() => {
     if (prefersReducedMotion() || nodes.length === 0) return
     const width = 700
@@ -212,6 +302,48 @@ export function DependencyMap({ projectId }: { projectId: string }) {
   const handleNodeClick = (node: NodeData) => {
     setSelected(selected?.id === node.id ? null : node)
     setHighlighted(selected?.id === node.id ? null : node.id)
+  }
+
+  const selectNode = (id: string) => {
+    const node = nodeMap.get(id)
+    if (node) {
+      setSelected(node)
+      setHighlighted(node.id)
+    }
+  }
+
+  const isHotspotNode = (id: string) => hotspots.some((h) => h.id === id)
+
+  const describeNode = (node: NodeData, imports: number, importedBy: number) => {
+    const parts: string[] = []
+    parts.push(`This is ${roleArticle(node.role)} in the ${node.folder} area.`)
+    if (imports > 0) {
+      parts.push(`It imports ${imports} file${imports === 1 ? "" : "s"}.`)
+    }
+    if (importedBy > 0) {
+      parts.push(`${importedBy} file${importedBy === 1 ? "" : "s"} import it.`)
+    } else {
+      parts.push("Nothing imports it, so it may be an entry point or unused.")
+    }
+    if (isHotspotNode(node.id)) {
+      parts.push("It is one of the most connected files, so changes here can ripple widely.")
+    }
+    return parts.join(" ")
+  }
+
+  const copyPath = async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {}
+  }
+
+  const goToImpact = (path: string) => {
+    const params = new URLSearchParams(window.location.search)
+    params.set("tab", "impact")
+    params.set("changeSet", path)
+    window.location.assign(`${window.location.pathname}?${params.toString()}`)
   }
 
   const getRadius = (node: NodeData) =>
@@ -429,13 +561,167 @@ export function DependencyMap({ projectId }: { projectId: string }) {
                   style={{ backgroundColor: nodeColor(node).bg }}
                   aria-hidden
                 />
-                <span className="truncate min-w-0 font-medium text-foreground">{node.label}</span>
+                <button
+                  type="button"
+                  onClick={() => selectNode(node.id)}
+                  className="truncate min-w-0 font-medium text-foreground hover:underline"
+                >
+                  {node.label}
+                </button>
                 <span className="ml-auto text-muted-foreground tabular-nums">{node.connections}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
+
+      <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelected(null) }}>
+        <SheetContent side="right" className="w-full gap-0 overflow-y-auto sm:max-w-md">
+          {selected && (() => {
+            const imports = Array.from(outgoing.get(selected.id) ?? [])
+            const importedBy = Array.from(incoming.get(selected.id) ?? [])
+            const color = roleColorClass(selected.role)
+            return (
+              <>
+                <SheetHeader className="border-b border-border pb-4">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px]"
+                      style={{ color, borderColor: color }}
+                    >
+                      {selected.role}
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {selected.language}
+                    </Badge>
+                    {isHotspotNode(selected.id) && (
+                      <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
+                        <Zap className="size-3" />
+                        Hotspot
+                      </Badge>
+                    )}
+                  </div>
+                  <SheetTitle className="break-all font-mono text-sm">
+                    {selected.id}
+                  </SheetTitle>
+                  <SheetDescription>
+                    {describeNode(selected, imports.length, importedBy.length)}
+                  </SheetDescription>
+                </SheetHeader>
+
+                <div className="space-y-5 p-4">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <p className="text-[11px] text-muted-foreground">Connections</p>
+                      <p className="text-lg font-semibold tabular-nums">{selected.connections}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <p className="text-[11px] text-muted-foreground">Imports</p>
+                      <p className="text-lg font-semibold tabular-nums">{imports.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <p className="text-[11px] text-muted-foreground">Imported by</p>
+                      <p className="text-lg font-semibold tabular-nums">{importedBy.length}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => copyPath(selected.id)}>
+                      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                      {copied ? "Copied" : "Copy path"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => goToImpact(selected.id)}>
+                      <Zap className="size-3.5" />
+                      View impact
+                    </Button>
+                  </div>
+
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" aria-hidden />
+                      Imports ({imports.length})
+                    </h4>
+                    {imports.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No outgoing imports.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {imports.slice(0, 30).map((path) => (
+                          <li key={path}>
+                            <button
+                              type="button"
+                              onClick={() => selectNode(path)}
+                              className="w-full truncate rounded-md border border-border bg-card px-2 py-1.5 text-left text-xs hover:bg-muted"
+                            >
+                              {path}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <ArrowDownLeft className="size-3.5 text-muted-foreground" aria-hidden />
+                      Imported by ({importedBy.length})
+                    </h4>
+                    {importedBy.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        Nothing imports this file. It may be an entry point or unused.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {importedBy.slice(0, 30).map((path) => (
+                          <li key={path}>
+                            <button
+                              type="button"
+                              onClick={() => selectNode(path)}
+                              className="w-full truncate rounded-md border border-border bg-card px-2 py-1.5 text-left text-xs hover:bg-muted"
+                            >
+                              {path}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold text-foreground">
+                      Symbols {symbolsLoading ? "" : `(${symbols.length})`}
+                    </h4>
+                    {symbolsLoading ? (
+                      <p className="text-xs text-muted-foreground">Loading symbols…</p>
+                    ) : symbols.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No symbols found in this file.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {symbols.slice(0, 40).map((sym, index) => (
+                          <li
+                            key={`${sym.name}-${sym.startLine}-${index}`}
+                            className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                          >
+                            <Badge variant="secondary" className="text-[10px]">
+                              {sym.kind}
+                            </Badge>
+                            <span className="truncate font-medium text-foreground">
+                              {sym.parent ? `${sym.parent}.${sym.name}` : sym.name}
+                            </span>
+                            <span className="ml-auto tabular-nums text-muted-foreground">
+                              {sym.startLine}-{sym.endLine}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </>
+            )
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -53,13 +53,15 @@ export async function GET(
   const deterministicGuide = computeDeterministicGuide(model, manifest, readme)
 
   const currentHash = inputHash(model, includeReadme)
-  const isOutOfDate = guideRow[0] && guideRow[0].input_hash !== currentHash
+  const isOutOfDate = Boolean(guideRow[0] && guideRow[0].input_hash !== currentHash)
+  const stored = guideRow[0]
+  const useStored = stored?.source === "deepseek" && stored.guide
 
   return NextResponse.json({
-    guide: toGuidePayload((guideRow[0]?.guide as never) ?? deterministicGuide),
-    source: guideRow[0]?.source ?? "deterministic",
-    model: guideRow[0]?.model ?? null,
-    generatedAt: guideRow[0]?.generated_at ?? new Date().toISOString(),
+    guide: toGuidePayload((useStored ? stored.guide : deterministicGuide) as never),
+    source: useStored ? "deepseek" : "deterministic",
+    model: useStored ? stored.model ?? null : null,
+    generatedAt: useStored ? stored.generated_at : new Date().toISOString(),
     includeReadme,
     isOutOfDate,
     readingListCandidates: deterministicGuide.readingList.map((r) => r.path),

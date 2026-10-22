@@ -183,7 +183,7 @@ export default function QueriesPage() {
                 </CardDescription>
               </div>
               <Select
-                value={selectedProjectId ?? ""}
+                value={selectedProjectId ?? undefined}
                 onValueChange={setSelectedProjectId}
                 disabled={projects.length === 0}
               >
@@ -196,11 +196,6 @@ export default function QueriesPage() {
                       {p.name}
                     </SelectItem>
                   ))}
-                  {projects.length === 0 && (
-                    <SelectItem disabled value="">
-                      No projects
-                    </SelectItem>
-                  )}
                 </SelectContent>
               </Select>
             </CardHeader>
@@ -260,7 +255,11 @@ export default function QueriesPage() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <MessageSquare className="size-12 mx-auto mb-3" />
-                  <p>Select a project to start asking questions.</p>
+                  <p>
+                    {projects.length === 0
+                      ? "No projects yet. Sync a project with the CLI to get started."
+                      : "Select a project to start asking questions."}
+                  </p>
                 </div>
               )}
             </CardContent>
