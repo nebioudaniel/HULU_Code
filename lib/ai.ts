@@ -1,11 +1,21 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless"
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
-const AI_BASE_URL = process.env.AI_BASE_URL ?? "https://api.deepseek.com"
-const AI_MODEL = process.env.AI_MODEL ?? "deepseek-flash"
-const AI_ENABLED = process.env.AI_ENABLED === "true"
+export function getDeepSeekKey(): string | undefined {
+  return process.env.DEEPSEEK_API_KEY
+}
 
-export { DEEPSEEK_API_KEY, AI_BASE_URL, AI_MODEL, AI_ENABLED }
+export function getAIBaseUrl(): string {
+  return process.env.AI_BASE_URL ?? "https://api.deepseek.com"
+}
+
+export function getAIModel(): string {
+  return process.env.AI_MODEL ?? "deepseek-flash"
+}
+
+export function isAIEnabled(): boolean {
+  const value = (process.env.AI_ENABLED ?? "").trim().toLowerCase()
+  return value === "true" || value === "1" || value === "yes" || value === "on"
+}
 
 export type AskResult =
   | { ok: true; answer: string; files: string[]; confidence: "low" | "medium" | "high"; followups: string[] }
@@ -151,25 +161,28 @@ export async function askAI(context: AskContext, structure: {
   hotspots: string[]
   moduleSummary: string
 }): Promise<AskResult> {
-  if (!DEEPSEEK_API_KEY || !AI_ENABLED) {
+  const apiKey = getDeepSeekKey()
+  if (!apiKey || !isAIEnabled()) {
     return { ok: false, error: "AI features disabled", retry: false }
   }
 
   const userPrompt = buildUserPrompt({ ...structure, question: context.question })
   const controller = new AbortController()
+  const baseUrl = getAIBaseUrl()
+  const model = getAIModel()
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const response = await fetchWithTimeout(
-        `${AI_BASE_URL}/chat/completions`,
+        `${baseUrl}/chat/completions`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+            Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: AI_MODEL,
+            model,
             messages: [
               { role: "system", content: buildSystemPrompt() },
               { role: "user", content: userPrompt },

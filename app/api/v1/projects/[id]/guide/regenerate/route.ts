@@ -6,23 +6,25 @@ import { auth } from "@/auth"
 import { getPlanLimits } from "@/lib/plans"
 import { isProjectId, loadProjectPage, type ProjectFileRow, type ProjectEdgeRow } from "@/lib/projects"
 import { buildGraphModel } from "@/lib/graph"
-import { computeDeterministicGuide, inputHash, validateAIOutput, toGuidePayload, type DeterministicGuide, AI_MODEL, AI_ENABLED, DEEPSEEK_API_KEY, AI_BASE_URL } from "@/lib/guide"
+import { computeDeterministicGuide, inputHash, validateAIOutput, toGuidePayload, type DeterministicGuide } from "@/lib/guide"
+import { getDeepSeekKey, getAIBaseUrl, getAIModel, isAIEnabled } from "@/lib/ai"
 
 async function callDeepSeek(prompt: string, _inputHash: string): Promise<DeterministicGuide | null> {
-  if (!DEEPSEEK_API_KEY || !AI_ENABLED) return null
+  const apiKey = getDeepSeekKey()
+  if (!apiKey || !isAIEnabled()) return null
 
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 45000)
 
-    const response = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${getAIBaseUrl()}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: getAIModel(),
         messages: [
           { role: "system", content: "You are a helpful assistant that outputs valid JSON only." },
           { role: "user", content: prompt },
@@ -160,7 +162,10 @@ export async function POST(
   let modelName: string | undefined
   let aiError: string | null = null
 
-  if (AI_ENABLED && DEEPSEEK_API_KEY) {
+  const aiEnabled = isAIEnabled()
+  const hasKey = Boolean(getDeepSeekKey())
+
+  if (aiEnabled && hasKey) {
     const prompt = buildPrompt(deterministicGuide, manifest, includeReadme ? readme : undefined, candidates, hotspots)
     const aiResult = await callDeepSeek(prompt, currentHash)
     if (aiResult) {
@@ -168,14 +173,14 @@ export async function POST(
       if (validated.ok) {
         finalGuide = validated.data!
         source = "deepseek"
-        modelName = AI_MODEL
+        modelName = getAIModel()
       } else {
         aiError = validated.error ?? "Invalid AI output"
       }
     } else {
       aiError = "AI request failed or timed out"
     }
-  } else if (!AI_ENABLED) {
+  } else if (!aiEnabled) {
     aiError = "AI features disabled"
   } else {
     aiError = "DEEPSEEK_API_KEY not configured"

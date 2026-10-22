@@ -7,7 +7,7 @@ import { getPlanLimits } from "@/lib/plans"
 import { isProjectId, loadProjectPage, type ProjectFileRow, type ProjectEdgeRow } from "@/lib/projects"
 import { buildGraphModel, type NodeMeta } from "@/lib/graph"
 import { computeDeterministicGuide } from "@/lib/guide"
-import { askAI, checkPlanLimit, checkBurstLimit, recordAIEvent, checkCache, storeQuery, type AskContext, AI_MODEL, AI_ENABLED, hashContext } from "@/lib/ai"
+import { askAI, checkPlanLimit, checkBurstLimit, recordAIEvent, checkCache, storeQuery, type AskContext, getAIModel, hashContext } from "@/lib/ai"
 
 const sql = neon(process.env.DATABASE_URL!)
 
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: aiResult.error, retry: aiResult.retry }, { status: 500 })
   }
 
-  await recordAIEvent(sql, session.user.id, projectId, "question", inputHash, AI_MODEL)
+  await recordAIEvent(sql, session.user.id, projectId, "question", inputHash, getAIModel())
 
   const answer = {
     answer: aiResult.answer,
