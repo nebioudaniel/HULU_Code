@@ -171,7 +171,20 @@ The deployed instance is a placeholder. Set it up yourself with Cloudflare Worke
 
 ## Screenshots
 
-(TODO: add screenshots in `docs/` for the landing page, dashboard, and sync flow.)
+### Main Page 
+<img width="1676" height="1094" alt="Screenshot 2026-10-27 at 10 34 05 AM" src="https://github.com/user-attachments/assets/9f7a6a3a-d797-484c-a950-1fe4eb04929d" />
+
+### Dashboard 
+<img width="1676" height="1094" alt="Screenshot 2026-10-27 at 10 35 13 AM" src="https://github.com/user-attachments/assets/54c1bf57-7056-46dd-acf5-14a83f30bb3d" />
+
+### Projects Page 
+
+<img width="1676" height="1094" alt="Screenshot 2026-10-27 at 10 35 56 AM" src="https://github.com/user-attachments/assets/a16febe4-cb9f-48a8-9b82-282a2c97f285" />
+
+### Billing Page 
+
+<img width="1676" height="1094" alt="Screenshot 2026-10-27 at 10 36 36 AM" src="https://github.com/user-attachments/assets/6635997d-bf40-4c78-b10b-c1fa2d57f4fa" />
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
